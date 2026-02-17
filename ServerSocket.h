@@ -2,6 +2,79 @@
 #include "pch.h"
 #include "framework.h"
 
+// 包定义与解析类
+class CPacket
+{
+public:
+    // 空包初始化
+    CPacket():sHead(0), nLength(0), sCmd(0), sSum(0) {}
+    // 拷贝构造
+    CPacket(const CPacket& packet) {
+        sHead = packet.sHead;
+        nLength = packet.nLength;
+        sCmd = packet.sCmd;
+        strData = packet.strData;
+        sSum = packet.sSum;
+    }
+    // 赋值运算符重载
+    CPacket& operator=(const CPacket& packet) {
+        if (this != &packet) {
+            sHead = packet.sHead;
+            nLength = packet.nLength;
+            sCmd = packet.sCmd;
+            strData = packet.strData;
+            sSum = packet.sSum;
+        }
+        return *this;
+    }
+    // 包解析
+    CPacket(const BYTE* pData, size_t& nSize) {//nSize是寻找包头的范围
+        size_t i = 0;
+        for ( i = 0;i<nSize;i++){
+            if (*(WORD*)(pData + i) == 0xFEFF) {
+                sHead = *(WORD*)(pData + i);//找到了包头,赋值给sHead
+                i += 2;//防止只有一个包头即nSize=2的情况
+                break;
+            }
+        }
+        if (i + 8 >= nSize) {//DWORD是4个字节,即一个长度,一个命令,一个和校验(数据另说)
+            //包无法接收完全
+            nSize = 0;//没使用到缓冲区,用到了0个字节
+            return;
+        }
+        nLength = *(DWORD*)(pData + i); i += 4;
+        if (nLength + i > nSize) {//缓冲区不够长,包未完全接收到
+            nSize = 0;
+            return;
+        }
+        sCmd = *(WORD*)(pData + i);     i += 2;
+        if(nLength > 4) {
+            strData.resize(nLength - 2 - 2);
+            memcpy((void*)strData.c_str(), pData + i, nLength - 4);
+            i += nLength - 4;
+        }
+        sSum = *(WORD*)(pData + i); i += 2;
+        WORD sum = 0;
+        for (size_t j = 0;j < strData.size();j++)
+        {
+            sum += BYTE(strData[j]) & 0xFF;
+        }
+        if (sum == sSum) {
+            nSize = i;
+            return;
+        }
+        nSize = 0;
+    }
+    ~CPacket() {}
+
+public:
+    WORD sHead;//固定位 FE FF
+    DWORD nLength;//包长度 从控制命令开始,到和校验结束
+    WORD sCmd;//控制命令
+    std::string strData;//包数据
+    WORD sSum;//和校验
+};
+
 class CServerSocket
 {
 public:
@@ -35,16 +108,28 @@ public:
         return true;
     }
 
+#define BUFFER_SIZE 4096
+
     int DealCommand() {
-        if (m_client == -1) return false;
-        char buffer[1024] = "";
+        if (m_client == -1) return -1;
+        char* buffer = new char[BUFFER_SIZE];
+        memset(buffer,0, BUFFER_SIZE);
+        size_t index = 0;
         while (true) {
-            int len = recv(m_client, buffer, sizeof(buffer), 0);
+            size_t len = recv(m_client, buffer + index, BUFFER_SIZE - index, 0);//新接收了多少字节
             if (len <= 0) {
                 return -1;
             }
-            //TODO:处理命令
+            index += len;//这里是总长度
+            len = index;//一len两用,下面的len表示总长度
+            m_packet = CPacket((BYTE*)buffer, len);//改变len为使用的len的长度
+            if (len > 0) {
+                memmove(buffer, buffer + len, BUFFER_SIZE - len);
+                index -= len;//剩余的缓冲区字节数
+                return m_packet.sCmd;
+            }
         }
+        return -1;
     }
 
     bool Send(const char* pData, int nSize) {
@@ -54,6 +139,7 @@ public:
 private:
     SOCKET m_sock;
     SOCKET m_client;
+    CPacket m_packet;
     CServerSocket& operator=(const CServerSocket& ss) {}
     CServerSocket(const CServerSocket& ss) {
         m_sock = ss.m_sock;
@@ -63,9 +149,9 @@ private:
         m_client = INVALID_SOCKET;
         if (InitSockEnv() == FALSE) {
             MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
-            m_sock = socket(PF_INET, SOCK_STREAM, 0);
             exit(0);
         }
+        m_sock = socket(PF_INET, SOCK_STREAM, 0);
     }
     ~CServerSocket() {
         closesocket(m_sock);
