@@ -2,6 +2,9 @@
 #include "pch.h"
 #include "framework.h"
 
+#pragma pack(push)
+#pragma pack(1)
+
 // 包定义与解析类
 class CPacket
 {
@@ -26,6 +29,19 @@ public:
             sSum = packet.sSum;
         }
         return *this;
+    }
+    // 打包
+    CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
+        sHead = 0xFEFF;
+        nLength = nSize + 4;
+        sCmd = nCmd;
+        strData.resize(nSize);
+        memcpy((void*)strData.c_str(), pData, nSize);
+        sSum = 0;
+        for (size_t j = 0; j < strData.size(); j++)
+        {
+            sSum += BYTE(strData[j]) & 0xFF;
+        }
     }
     // 包解析
     CPacket(const BYTE* pData, size_t& nSize) {//nSize是寻找包头的范围
@@ -66,14 +82,30 @@ public:
         nSize = 0;
     }
     ~CPacket() {}
-
+    // 包数据的大小
+    int Size() {
+        return nLength + 6;
+    }
+    // 包数据的值
+    const char* Data() {
+        strOut.resize(nLength + 6);
+        BYTE* pData = (BYTE*)strOut.c_str();
+        *(WORD*)pData = sHead; pData += 2;
+        *(DWORD*)(pData) = nLength; pData += 4;
+        *(WORD*)pData = sCmd; pData += 2;
+        memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
+        *(WORD*)pData = sSum;
+        return strOut.c_str();
+    }
 public:
     WORD sHead;//固定位 FE FF
     DWORD nLength;//包长度 从控制命令开始,到和校验结束
     WORD sCmd;//控制命令
     std::string strData;//包数据
     WORD sSum;//和校验
+    std::string strOut;//整个包的数据
 };
+#pragma pack(pop)
 
 class CServerSocket
 {
@@ -135,6 +167,10 @@ public:
     bool Send(const char* pData, int nSize) {
         return send(m_client, pData, nSize, 0) > 0;
     }
+    bool Send(CPacket& packet) {
+        if (m_client == -1) return false;
+        return send(m_client, packet.Data(), packet.Size(), 0) > 0;
+    }
 
 private:
     SOCKET m_sock;
@@ -184,5 +220,3 @@ private:
     };
     static CHelper m_helper;
 };
-
-//extern CServerSocket server;
