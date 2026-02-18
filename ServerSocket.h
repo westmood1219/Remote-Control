@@ -172,6 +172,13 @@ public:
         return send(m_client, packet.Data(), packet.Size(), 0) > 0;
     }
 
+    bool GetFilePath(std::string& strPath) {
+        if (m_packet.sCmd == 2) {
+            strPath = m_packet.strData;
+            return true;
+        }
+    }
+
 private:
     SOCKET m_sock;
     SOCKET m_client;
