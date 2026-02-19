@@ -4,6 +4,7 @@
 
 #pragma pack(push)
 #pragma pack(1)
+#pragma warning(disable: 4267)// 暂时禁用 size_t 转 DWORD 的警告
 
 // 包定义与解析类
 class CPacket
@@ -35,8 +36,13 @@ public:
         sHead = 0xFEFF;
         nLength = nSize + 4;
         sCmd = nCmd;
-        strData.resize(nSize);
-        memcpy((void*)strData.c_str(), pData, nSize);
+        if (nSize > 0) {
+            strData.resize(nSize);
+            memcpy((void*)strData.c_str(), pData, nSize);
+        }
+        else {
+            strData.clear();
+        }
         sSum = 0;
         for (size_t j = 0; j < strData.size(); j++)
         {
@@ -106,7 +112,8 @@ public:
     std::string strOut;//整个包的数据
 };
 #pragma pack(pop)
-
+#pragma warning(push)
+#pragma warning(disable: 4267)// 暂时禁用 size_t 转 DWORD 的警告
 class CServerSocket
 {
 public:
@@ -133,7 +140,7 @@ public:
 
     bool AcceptClient() {
         sockaddr_in client_adr;
-        char buffer[1024];
+        //char buffer[1024];
         int cli_sz = sizeof(client_adr);
         m_client = accept(m_sock, (sockaddr*)&client_adr, &cli_sz);
         if (m_client == -1) return false;
@@ -173,10 +180,11 @@ public:
     }
 
     bool GetFilePath(std::string& strPath) {
-        if (m_packet.sCmd == 2) {
+        if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4)) {
             strPath = m_packet.strData;
             return true;
         }
+        return false;
     }
 
 private:
@@ -226,4 +234,5 @@ private:
         }
     };
     static CHelper m_helper;
-};
+}; 
+#pragma warning(pop) // 恢复之前的警告设置
