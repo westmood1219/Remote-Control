@@ -6,6 +6,7 @@
 #include "RemoteCtl.h"
 #include "ServerSocket.h"
 #include <direct.h>
+#include <atlimage.h>//屏幕相关
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -260,6 +261,40 @@ int MouseEvent()
     return 0;
 }
 
+int SendScreen()
+{
+    CImage screen;
+    HDC hScreen = GetDC(NULL);
+    int nBitPerPixel = GetDeviceCaps(hScreen, BITSPIXEL);// 查询颜色深度
+    int nWidth = GetDeviceCaps(hScreen, HORZRES);
+    int nHeight = GetDeviceCaps(hScreen, VERTRES);
+    screen.Create(nWidth, nHeight, nBitPerPixel);
+    BitBlt(screen.GetDC(), 0, 0, 1920, 1080, hScreen, 0, 0, SRCCOPY);
+    ReleaseDC(NULL, hScreen);
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+    IStream* pStream = NULL;
+    HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+    if (ret == S_OK) {
+        screen.Save(pStream, Gdiplus::ImageFormatPNG);
+        LARGE_INTEGER bg{};
+        pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+        PBYTE pData = (PBYTE)GlobalLock(hMem);
+        SIZE_T nSize = GlobalSize(hMem);
+        CPacket pack(6, NULL, nSize);
+        CServerSocket::getInstance()->Send(pack);
+        GlobalUnlock(hMem);
+    }
+    //DWORD tick = GetTickCount64();//测速相关
+    //screen.Save(_T("test2026.png"), Gdiplus::ImageFormatPNG);// PNG速度更快
+    /*TRACE("PNG %d\r\n", GetTickCount64() - tick);
+    screen.Save(_T("test2027.jpg"), Gdiplus::ImageFormatJPEG);
+    TRACE("JPG %d\r\n", GetTickCount64() - tick);*/
+    pStream->Release();
+    GlobalFree(hMem);
+    screen.ReleaseDC();
+    return 0;
+}
+
 int main()
 {
     int nRetCode = 0;
@@ -298,7 +333,7 @@ int main()
             //}
             
             // 查文件
-            int nCmd = 1;
+            int nCmd = 6;
             switch (nCmd) {
             case 1:// 先看磁盘分区
                 MakeDriverInfo();
@@ -314,6 +349,9 @@ int main()
                 break;
             case 5:// 鼠标操作
                 MouseEvent();
+                break;
+            case 6:// 发送屏幕内容->即屏幕截图
+                SendScreen();
                 break;
             default:
                 break;
