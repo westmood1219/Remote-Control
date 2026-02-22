@@ -280,20 +280,90 @@ int SendScreen()
         pStream->Seek(bg, STREAM_SEEK_SET, NULL);
         PBYTE pData = (PBYTE)GlobalLock(hMem);
         SIZE_T nSize = GlobalSize(hMem);
-        CPacket pack(6, NULL, nSize);
+        CPacket pack(6, pData, nSize);
         CServerSocket::getInstance()->Send(pack);
         GlobalUnlock(hMem);
     }
-    //DWORD tick = GetTickCount64();//测速相关
-    //screen.Save(_T("test2026.png"), Gdiplus::ImageFormatPNG);// PNG速度更快
-    /*TRACE("PNG %d\r\n", GetTickCount64() - tick);
-    screen.Save(_T("test2027.jpg"), Gdiplus::ImageFormatJPEG);
-    TRACE("JPG %d\r\n", GetTickCount64() - tick);*/
     pStream->Release();
     GlobalFree(hMem);
     screen.ReleaseDC();
     return 0;
+    /*//DWORD tick = GetTickCount64();//测速相关
+    //screen.Save(_T("test2026.png"), Gdiplus::ImageFormatPNG);// PNG速度更快
+    TRACE("PNG %d\r\n", GetTickCount64() - tick);
+    screen.Save(_T("test2027.jpg"), Gdiplus::ImageFormatJPEG);
+    TRACE("JPG %d\r\n", GetTickCount64() - tick);*/
 }
+
+#include "LockInfoDialog.h"
+CLockInfoDialog dlg;
+unsigned threadid = 0;
+
+unsigned _stdcall threadLockDlg(void* arg)
+{
+    TRACE("%s(%d): %d\r\n", __FUNCTION__, __LINE__, GetCurrentThreadId());
+    // 创建覆盖全屏dialog
+    dlg.Create(IDD_DIALOG_INFO, NULL);
+    dlg.ShowWindow(SW_SHOW);
+    CRect rect;
+    rect.left = -10;
+    rect.right = GetSystemMetrics(SM_CXFULLSCREEN);
+    rect.right *= 2;
+    rect.top = 0;
+    rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
+    rect.bottom *= 2;
+    dlg.MoveWindow(rect);
+    // 窗口置顶
+    //dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+    // 限制鼠标功能
+    ShowCursor(false);
+    // 隐藏任务栏
+    ShowWindow(FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
+    // 限制鼠标活动范围
+    rect.right = rect.left + 1;
+    rect.top = rect.bottom + 1;
+    //dlg.GetWindowRect(rect);
+    ClipCursor(rect);
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        if (msg.message == WM_KEYDOWN) {
+            TRACE("msg: %08X wparam: %08X lparam: %08X\r\n", msg.message, msg.wParam, msg.lParam);
+            if (msg.wParam == VK_ESCAPE) {// 按下ESC退出
+                break;
+            }
+        }
+    }
+    ShowCursor(true);
+    ShowWindow(FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);
+    dlg.DestroyWindow();
+    _endthreadex(0);
+    return 0;
+}
+
+int LockMachine()
+{
+    if ( (dlg.m_hWnd == NULL) || (dlg.m_hWnd == INVALID_HANDLE_VALUE ) ) {
+        //_beginthread(threadLockDlg, 0, NULL);
+        _beginthreadex(NULL, 0, threadLockDlg, NULL, 0, &threadid);
+        TRACE("threadid = %d\r\n", threadid);
+    }
+    CPacket pack(7, NULL, 0);
+    CServerSocket::getInstance()->Send(pack); 
+    return 0;
+}
+
+int UnlockMachine()
+{
+    //dlg.SendMessage(WM_KEYDOWN, 0x1B, 0x10001);
+    //::SendMessage(dlg.m_hWnd, WM_KEYDOWN, 0x1B, 0x10001);
+    PostThreadMessage(threadid, WM_KEYDOWN, VK_ESCAPE, 0);
+    CPacket pack(7, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
 
 int main()
 {
@@ -332,8 +402,9 @@ int main()
             //    //TODO:
             //}
             
+
             // 查文件
-            int nCmd = 6;
+            int nCmd = 7;
             switch (nCmd) {
             case 1:// 先看磁盘分区
                 MakeDriverInfo();
@@ -353,9 +424,22 @@ int main()
             case 6:// 发送屏幕内容->即屏幕截图
                 SendScreen();
                 break;
+            case 7:// 锁机
+                LockMachine();
+                break;
+            case 8:// 解锁
+                UnlockMachine();
+                break;
             default:
                 break;
             }
+            Sleep(2000);
+            UnlockMachine();
+            TRACE("m_hWnd = %08X\r\n", dlg.m_hWnd);
+            while (dlg.m_hWnd != NULL) {
+                Sleep(10);
+            }
+
         }
     }
     else
