@@ -52,14 +52,14 @@ public:
     // 包解析
     CPacket(const BYTE* pData, size_t& nSize) {//nSize是寻找包头的范围
         size_t i = 0;
-        for ( i = 0;i<nSize;i++){
+        for ( i = 0 ; i < nSize; i++){
             if (*(WORD*)(pData + i) == 0xFEFF) {
                 sHead = *(WORD*)(pData + i);//找到了包头,赋值给sHead
                 i += 2;//防止只有一个包头即nSize=2的情况
                 break;
             }
         }
-        if (i + 8 >= nSize) {//DWORD是4个字节,即一个长度,一个命令,一个和校验(数据另说)
+        if (i + 4 +2 +2 > nSize) {//DWORD是4个字节,即一个长度,一个命令,一个和校验(数据另说)
             //包无法接收完全
             nSize = 0;//没使用到缓冲区,用到了0个字节
             return;
@@ -128,6 +128,11 @@ typedef struct MouseEvent
 
 #pragma warning(push)
 #pragma warning(disable: 4267)// 暂时禁用 size_t 转 DWORD 的警告
+
+
+// 查询网络连接错误码含义
+std::string GetErrInfo(int wasErrCode);
+
 class CServerSocket
 {
 public:
@@ -145,14 +150,18 @@ public:
         memset(&serv_adr, 0, sizeof(serv_adr));
         serv_adr.sin_addr.s_addr = INADDR_ANY;
         serv_adr.sin_family = AF_INET;
-        serv_adr.sin_port = htons(9527);
+        serv_adr.sin_port = htons(9327);
         //绑定
-        if (bind(m_sock, (sockaddr*)&serv_adr, sizeof(serv_adr)) == -1) return false;//TODO:
+        if (bind(m_sock, (const sockaddr*)&serv_adr, sizeof(serv_adr)) == -1) {
+            TRACE("连接失败: %d %s \r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
+            return false;
+        }//TODO:
         if (listen(m_sock, 5) == -1) return false;
         return true;
     }
 
     bool AcceptClient() {
+        TRACE("enter accept Client\r\n");
         sockaddr_in client_adr;
         //char buffer[1024];
         int cli_sz = sizeof(client_adr);
@@ -166,22 +175,34 @@ public:
     int DealCommand() {
         if (m_client == -1) return -1;
         char* buffer = new char[BUFFER_SIZE];
+        TRACE("new buffer \r\n");
+        if (buffer == NULL) {
+            TRACE("内存不足\r\n");
+            return -2;
+        }
         memset(buffer,0, BUFFER_SIZE);
         size_t index = 0;
         while (true) {
             size_t len = recv(m_client, buffer + index, BUFFER_SIZE - index, 0);//新接收了多少字节
             if (len <= 0) {
+                delete[] buffer;
+                TRACE("delete buffer 1\r\n");
                 return -1;
             }
+            TRACE("recv %d\r\n", len);
             index += len;//这里是总长度
             len = index;//一len两用,下面的len表示总长度
             m_packet = CPacket((BYTE*)buffer, len);//改变len为使用的len的长度
             if (len > 0) {
                 memmove(buffer, buffer + len, BUFFER_SIZE - len);
                 index -= len;//剩余的缓冲区字节数
+                delete[] buffer;
+                TRACE("delete buffer 2\r\n");
                 return m_packet.sCmd;
             }
         }
+        delete[] buffer;
+        TRACE("delete buffer 3\r\n");
         return -1;
     }
 
@@ -189,6 +210,7 @@ public:
         return send(m_client, pData, nSize, 0) > 0;
     }
     bool Send(CPacket& packet) {
+        TRACE("m_sock = %d \r\n", m_sock);
         if (m_client == -1) return false;
         return send(m_client, packet.Data(), packet.Size(), 0) > 0;
     }
@@ -207,6 +229,16 @@ public:
             return true;
         }
         return false;
+    }
+
+    CPacket& GetPacket()
+    {
+        return m_packet;
+    }
+
+    void CloseClient() {
+        closesocket(m_client);
+        m_client = INVALID_SOCKET;
     }
 
 private:

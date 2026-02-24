@@ -31,6 +31,7 @@ public:
 // 实现
 protected:
 	DECLARE_MESSAGE_MAP()
+public:
 };
 
 CAboutDlg::CAboutDlg() : CDialogEx(IDD_ABOUTBOX)
@@ -43,6 +44,7 @@ void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 }
 
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
+
 END_MESSAGE_MAP()
 
 
@@ -65,6 +67,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_BN_CLICKED(IDC_BTN_TEST, &CRemoteClientDlg::OnBnClickedBtnTest)
 END_MESSAGE_MAP()
 
 
@@ -153,3 +156,18 @@ HCURSOR CRemoteClientDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+void CRemoteClientDlg::OnBnClickedBtnTest()
+{
+    CClientSocket* pClient = CClientSocket::getInstance();
+    bool ret = pClient->InitSocket("127.0.0.1"); //TODO: 返回值处理
+    if (!ret) {
+        AfxMessageBox(_T("网络初始化失败"));
+		return;
+    }
+    CPacket pack(1981,NULL,0);
+    ret = pClient->Send(pack);
+	TRACE("Send ret : %d\r\n", ret);
+	int cmd = pClient->DealCommand();
+	TRACE("ack: %d\r\n", cmd);
+	pClient->CloseSocket();
+}
