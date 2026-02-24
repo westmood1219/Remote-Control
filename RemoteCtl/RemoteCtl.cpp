@@ -32,7 +32,7 @@ void Dump(BYTE* pData, size_t nSize)
     OutputDebugStringA(strOut.c_str());
 }
 
-std::string MakeDriverInfo() 
+int MakeDriverInfo() 
 {
     std::string result;
     for (int i =1;i<=26;i++)
@@ -44,9 +44,10 @@ std::string MakeDriverInfo()
             result += 'A' + i - 1;
         }
     }
+    result += ',';
     CPacket pack(1, (BYTE*)result.c_str(), result.size()); //打包
     Dump((BYTE*)pack.Data(), pack.Size());
-    //CServerSocket::getInstance()->Send(pack);
+    CServerSocket::getInstance()->Send(pack);
     return 0;
 }
 
@@ -378,7 +379,7 @@ int ExcuteCommand(int nCmd)
     int ret{};
     switch (nCmd) {
     case 1:// 先看磁盘分区
-        ret = MakeDirectoryInfo();
+        ret = MakeDriverInfo();
         break;
     case 2:// 查看指定目录下的文件
         ret = MakeDirectoryInfo();

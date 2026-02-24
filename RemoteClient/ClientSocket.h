@@ -146,16 +146,17 @@ public:
         return m_instance;
     }
 
-    bool InitSocket(const std::string& strIPAddress) {
+    bool InitSocket(int nIP, int nPort) {
         if (m_sock != INVALID_SOCKET) CloseSocket();
         m_sock = socket(PF_INET, SOCK_STREAM, 0);
         if (m_sock == -1)return false;
         //TODO: 校验
         sockaddr_in serv_adr;
         memset(&serv_adr, 0, sizeof(serv_adr));
-        serv_adr.sin_addr.s_addr = inet_addr(strIPAddress.c_str());
+        TRACE("addr %08X nIP %08X\r\n", inet_addr("127.0.0.1"), nIP);
+        serv_adr.sin_addr.s_addr = nIP;
         serv_adr.sin_family = AF_INET;
-        serv_adr.sin_port = htons(9327);
+        serv_adr.sin_port = htons(nPort);
         if (serv_adr.sin_addr.s_addr == INADDR_NONE) {
             AfxMessageBox(_T("指定的IP地址不存在"));
             return false;
