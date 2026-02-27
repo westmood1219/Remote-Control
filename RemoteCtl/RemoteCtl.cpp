@@ -53,19 +53,6 @@ int MakeDriverInfo()
 
 #include <io.h>
 #include <list>
-
-typedef struct file_info{
-    file_info() {
-        IsInvalid = FALSE;
-        IsDiretory = -1;
-        HasNext = TRUE;
-        memset(szFileName, 0, sizeof(szFileName));
-    }
-    BOOL IsInvalid;     // 是否有效
-    BOOL IsDiretory;// 是否为目录 0->否
-    BOOL HasNext;   // 是否有子文件 1->has
-    char szFileName[256];// 文件名
-} FILEINFO, *PFILEINFO;
  
 int MakeDirectoryInfo()
 {
@@ -77,12 +64,8 @@ int MakeDirectoryInfo()
     }
     if (_chdir(strPath.c_str()) != 0) {
         FILEINFO finfo;
-        finfo.IsInvalid = TRUE;
-        finfo.IsDiretory = TRUE;
         finfo.HasNext = FALSE;
-        memcpy(finfo.szFileName, strPath.c_str(), strPath.size());
-        //lstFileInfos.push_back(finfo);
-        CPacket pack(2, (BYTE*) & finfo, sizeof(finfo));
+        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::getInstance()->Send(pack);
         OutputDebugString(_T("没有权限访问目录!!!"));
         return -2;
@@ -91,6 +74,10 @@ int MakeDirectoryInfo()
     intptr_t hfind = 0;
     if ((hfind = _findfirst("*", &fdata)) == -1) {
         OutputDebugString(_T("没有找到任何文件!!!"));
+        FILEINFO finfo;
+        finfo.HasNext = FALSE;
+        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+        CServerSocket::getInstance()->Send(pack);
         return -3;
     }
     do 
@@ -98,7 +85,7 @@ int MakeDirectoryInfo()
         FILEINFO finfo;
         finfo.IsDiretory = (fdata.attrib & _A_SUBDIR) != 0;
         memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
-        //lstFileInfos.push_back(finfo);
+        TRACE("%s \r\n", finfo.szFileName);
         CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::getInstance()->Send(pack);
     } while (!_findnext(hfind,&fdata));

@@ -2,6 +2,34 @@
 #include "pch.h"
 #include "framework.h"
 
+void Dump(BYTE* pData, size_t nSize);
+
+typedef struct file_info {
+    file_info() {
+        IsInvalid = FALSE;
+        IsDiretory = -1;
+        HasNext = TRUE;
+        memset(szFileName, 0, sizeof(szFileName));
+    }
+    BOOL IsInvalid;     // 是否有效
+    BOOL IsDiretory;// 是否为目录 0->否
+    BOOL HasNext;   // 是否有子文件 1->has
+    char szFileName[256];// 文件名
+} FILEINFO, * PFILEINFO;
+
+typedef struct MouseEvent
+{
+    MouseEvent() {
+        nAction = 0;
+        nButton = -1;
+        ptXY.x = 0;
+        ptXY.y = 0;
+    }
+    WORD nAction;// 点击, 移动, 双击
+    WORD nButton;// 左键, 右键, 中键
+    POINT ptXY;// 坐标
+}MOUSEEV, * PMOUSEEV;
+
 #pragma pack(push)
 #pragma pack(1)
 #pragma warning(disable: 4267)// 暂时禁用 size_t 转 DWORD 的警告
@@ -113,19 +141,6 @@ public:
 };
 #pragma pack(pop)
 
-typedef struct MouseEvent
-{
-    MouseEvent() {
-        nAction = 0;
-        nButton = -1;
-        ptXY.x = 0;
-        ptXY.y = 0;
-    }
-    WORD nAction;// 点击, 移动, 双击
-    WORD nButton;// 左键, 右键, 中键
-    POINT ptXY;// 坐标
-}MOUSEEV, *PMOUSEEV;
-
 #pragma warning(push)
 #pragma warning(disable: 4267)// 暂时禁用 size_t 转 DWORD 的警告
 
@@ -210,8 +225,8 @@ public:
         return send(m_client, pData, nSize, 0) > 0;
     }
     bool Send(CPacket& packet) {
-        TRACE("m_sock = %d \r\n", m_sock);
         if (m_client == -1) return false;
+        Dump((BYTE*)packet.Data(), packet.Size());
         return send(m_client, packet.Data(), packet.Size(), 0) > 0;
     }
 

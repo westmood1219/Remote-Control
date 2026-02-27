@@ -4,6 +4,19 @@
 #include <string>
 #include <vector>
 
+typedef struct file_info {
+    file_info() {
+        IsInvalid = FALSE;
+        IsDiretory = -1;
+        HasNext = TRUE;
+        memset(szFileName, 0, sizeof(szFileName));
+    }
+    BOOL IsInvalid;     // 是否有效
+    BOOL IsDiretory;// 是否为目录 0->否
+    BOOL HasNext;   // 是否有子文件 1->has
+    char szFileName[256];// 文件名
+} FILEINFO, * PFILEINFO;
+
 #pragma pack(push)
 #pragma pack(1)
 #pragma warning(disable: 4267)// 暂时禁用 size_t 转 DWORD 的警告
