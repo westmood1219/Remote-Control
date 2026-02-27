@@ -98,6 +98,9 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_NOTIFY(NM_DBLCLK, IDC_TREE_DIR, &CRemoteClientDlg::OnNMDblclkTreeDir)
 	ON_NOTIFY(NM_CLICK, IDC_TREE_DIR, &CRemoteClientDlg::OnNMClickTreeDir)
 	ON_NOTIFY(NM_RCLICK, IDC_LIST_FILE, &CRemoteClientDlg::OnNMRClickListFile)
+	ON_COMMAND(ID_DOWNLOAD_FILE, &CRemoteClientDlg::OnDownloadFile)
+	ON_COMMAND(ID_DELETE_FIEL, &CRemoteClientDlg::OnDeleteFiel)
+	ON_COMMAND(ID_RUN_FIEL, &CRemoteClientDlg::OnRunFiel)
 END_MESSAGE_MAP()
 
 
@@ -312,4 +315,59 @@ void CRemoteClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 	if (pPupup != NULL) {
 		pPupup->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, ptMouse.x, ptMouse.y, this);
 	}
+}
+
+void CRemoteClientDlg::OnDownloadFile()
+{
+	int nListSelected = m_List.GetSelectionMark();
+	CString strFile = m_List.GetItemText(nListSelected, 0);
+	
+	CFileDialog dlg(false, "*", 
+		strFile, OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY, 
+		NULL, this);
+	if (dlg.DoModal() == IDOK) {
+		FILE* pFile = fopen(dlg.GetPathName(), "wb+");
+		if (pFile == nullptr) {
+			AfxMessageBox(_T("没有权限保存该文件/文件无法创建"));
+			return;
+		}
+		HTREEITEM hSelected = m_Tree.GetSelectedItem();
+		strFile = GetPath(hSelected) + strFile;
+		TRACE("%s\r\n", LPCSTR(strFile));
+		int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+		if (ret < 0) {
+			AfxMessageBox("执行下载命令失败!!");
+			TRACE("执行下载命令失败:ret = %d \r\n", ret);
+			return;
+		}
+		long long nLength = *(long long*)CClientSocket::getInstance()->GetPacket().strData.c_str();
+		CClientSocket* pClient = CClientSocket::getInstance();
+		if (nLength == 0) {
+			AfxMessageBox("文件长度为0或者无法读取文件!!");
+			return;
+		}
+		long long nCount = 0;
+		while (nCount < nLength) {
+			ret = pClient->DealCommand();
+			if (ret < 0) {
+				AfxMessageBox("传输失败!!");
+				TRACE("传输失败:ret = %d \r\n", ret);
+				return;
+			}
+			fwrite(pClient->GetPacket().strData.c_str(), 1, pClient->GetPacket().strData.size(), pFile);
+			nCount += pClient->GetPacket().strData.size();
+		}
+		fclose(pFile);
+		pClient->CloseSocket();
+	}
+}
+
+void CRemoteClientDlg::OnDeleteFiel()
+{
+
+}
+
+void CRemoteClientDlg::OnRunFiel()
+{
+
 }
