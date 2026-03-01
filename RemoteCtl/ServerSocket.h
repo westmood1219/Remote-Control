@@ -176,7 +176,7 @@ public:
     }
 
     bool AcceptClient() {
-        TRACE("enter accept Client\r\n");
+        //TRACE("enter accept Client\r\n");
         sockaddr_in client_adr;
         //char buffer[1024];
         int cli_sz = sizeof(client_adr);
@@ -226,7 +226,7 @@ public:
     }
     bool Send(CPacket& packet) {
         if (m_client == -1) return false;
-        Dump((BYTE*)packet.Data(), packet.Size());
+        //Dump((BYTE*)packet.Data(), packet.Size());
         return send(m_client, packet.Data(), packet.Size(), 0) > 0;
     }
 

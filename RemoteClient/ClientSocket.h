@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+void Dump(BYTE* pData, size_t nSize);
+
 typedef struct file_info {
     file_info() {
         IsInvalid = FALSE;
@@ -88,6 +90,7 @@ public:
         if (nLength > 4) {
             strData.resize(nLength - 2 - 2);
             memcpy((void*)strData.c_str(), pData + i, nLength - 4);
+            TRACE("Cpacket:strdata  ----%s\r\n", strData.c_str()+12);
             i += nLength - 4;
         }
         sSum = *(WORD*)(pData + i); i += 2;
@@ -185,18 +188,18 @@ public:
     int DealCommand() {
         if (m_sock == -1) return -1;
         char* buffer = m_buffer.data();
-        memset(buffer, 0, BUFFER_SIZE);
-        size_t index = 0;
+        static size_t index = 0;
         while (true) {
             size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);//新接收了多少字节
-            if (len <= 0) {
+            Dump((BYTE*)buffer,index);
+            if (len <= 0 && index == 0) {
                 return -1;
             }
             index += len;//这里是总长度
             len = index;//一len两用,下面的len表示总长度
             m_packet = CPacket((BYTE*)buffer, len);//改变len为使用的len的长度
             if (len > 0) {
-                memmove(buffer, buffer + len, BUFFER_SIZE - len);
+                memmove(buffer, buffer + len, index - len);
                 index -= len;//剩余的缓冲区字节数
                 return m_packet.sCmd;
             }
@@ -252,6 +255,7 @@ private:
             exit(0);
         }
         m_buffer.resize(BUFFER_SIZE);
+        memset(m_buffer.data(), 0, BUFFER_SIZE);
     }
     ~CClientSocket() {
         closesocket(m_sock);

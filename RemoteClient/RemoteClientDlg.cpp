@@ -82,7 +82,7 @@ int CRemoteClientDlg::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, 
     ret = pClient->Send(pack);
     TRACE("Send ret : %d\r\n", ret);
     int cmd = pClient->DealCommand();
-    TRACE("ack: %d\r\n", cmd);
+    //TRACE("ack: %d\r\n", cmd);
 	if (bAutoClose) {
 		pClient->CloseSocket();
 	}
@@ -260,6 +260,7 @@ void CRemoteClientDlg::LoadFileInfo()
 	int cmd = SendCommandPacket(2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength());
 	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 	CClientSocket* pClient = CClientSocket::getInstance();
+	int Count{};
 	while (pInfo->HasNext == TRUE)
 	{
 		TRACE("[%s] isdir %d\r\n", pInfo->szFileName, pInfo->IsDiretory);
@@ -280,12 +281,14 @@ void CRemoteClientDlg::LoadFileInfo()
 			m_List.InsertItem(0, pInfo->szFileName);
 		}
 		int cmd = pClient->DealCommand();
-		TRACE("ack:%d \r\n", cmd);
+		//TRACE("ack:%d \r\n", cmd);
 		if (cmd < 0) {
 			break;
 		}
 		pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
+		Count++;
 	}
+	TRACE("recv        %d\r\n", Count);
 	pClient->CloseSocket();
 }
 

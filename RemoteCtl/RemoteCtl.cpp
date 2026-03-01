@@ -80,15 +80,18 @@ int MakeDirectoryInfo()
         CServerSocket::getInstance()->Send(pack);
         return -3;
     }
+    int Count{};
     do 
     {
         FILEINFO finfo;
         finfo.IsDiretory = (fdata.attrib & _A_SUBDIR) != 0;
         memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
-        TRACE("%s \r\n", finfo.szFileName);
+        TRACE("[[%s]] \r\n", finfo.szFileName);
         CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::getInstance()->Send(pack);
+        Count++;
     } while (!_findnext(hfind,&fdata));
+    TRACE("send:  %d\r\n", Count);
     FILEINFO finfo;
     finfo.HasNext = FALSE;
     CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
@@ -462,7 +465,7 @@ int main()
                         TRACE("执行命令失败, %d ret = %d\r\n", pserver->GetPacket().sCmd, ret);
                     }
                     pserver->CloseClient();
-                    TRACE("Command has done!\r\n");
+                    //TRACE("Command has done!\r\n");
                 }
                 
             }
