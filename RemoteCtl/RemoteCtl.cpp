@@ -353,6 +353,25 @@ int UnlockMachine()
     return 0;
 }
 
+int DeleteLocalFile()
+{
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+    TCHAR sPath[MAX_PATH] = _T("");
+    MultiByteToWideChar(
+        CP_UTF8,             
+        0,
+        strPath.c_str(),
+        -1,             // 数到 "\0"
+        sPath,
+        sizeof(sPath) / sizeof(TCHAR)
+    );
+    DeleteFile(sPath);;
+    CPacket pack(9, NULL, 0);
+    bool ret = CServerSocket::getInstance()->Send(pack);
+    TRACE("DeleteLocalFile send ret = %d\r\n", ret);
+    return 0;
+}
 
 int TestConnect() {
     CPacket pack(1981, NULL, 0);
@@ -389,6 +408,9 @@ int ExcuteCommand(int nCmd)
         break;
     case 8:// 解锁
         ret = UnlockMachine();
+        break;
+    case 9:// 删除文件
+        ret = DeleteLocalFile();
         break;
     case 1981:
         ret = TestConnect();

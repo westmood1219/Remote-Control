@@ -24,15 +24,15 @@
 #define ID_DOWNLOAD                     32774
 #define ID_DOWNLOAD_                    32775
 #define ID_DOWNLOAD_FILE                32776
-#define ID_DELETE_FIEL                  32777
-#define ID_RUN_FIEL                     32778
+#define ID_DELETE_FILE                  32779
+#define ID_RUN_FILE                     32780
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        131
-#define _APS_NEXT_COMMAND_VALUE         32779
+#define _APS_NEXT_COMMAND_VALUE         32781
 #define _APS_NEXT_CONTROL_VALUE         1009
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
