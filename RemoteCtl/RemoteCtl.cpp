@@ -348,9 +348,7 @@ int LockMachine()
 
 int UnlockMachine()
 {
-    //dlg.SendMessage(WM_KEYDOWN, 0x1B, 0x10001);
-    //::SendMessage(dlg.m_hWnd, WM_KEYDOWN, 0x1B, 0x10001);
-    PostThreadMessage(threadid, WM_KEYDOWN, VK_ESCAPE, 0);
+    PostThreadMessage(threadid, WM_KEYDOWN, VK_ESCAPE, 0);// 没有hwnd,用线程id传
     CPacket pack(7, NULL, 0);
     CServerSocket::getInstance()->Send(pack);
     return 0;

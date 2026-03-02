@@ -191,8 +191,8 @@ public:
         static size_t index = 0;
         while (true) {
             size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);//新接收了多少字节
-            Dump((BYTE*)buffer,index);
-            if (len <= 0 && index == 0) {
+            //Dump((BYTE*)buffer,index);
+            if (len <= 0 && index <= 0) {
                 return -1;
             }
             index += len;//这里是总长度
