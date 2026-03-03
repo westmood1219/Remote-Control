@@ -56,6 +56,7 @@ CRemoteClientDlg::CRemoteClientDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_REMOTECLIENT_DIALOG, pParent)
 	, m_server_address(0)
 	, m_nPort(_T(""))
+	, m_isFull(false)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -220,6 +221,35 @@ void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 			continue;
         }
         dr += drivers[i];
+	}
+}
+
+void CRemoteClientDlg::threadEntryForWatchData(void* arg)
+{
+}
+
+void CRemoteClientDlg::threadWatchData()
+{
+	CClientSocket* pClient = NULL;
+	do {
+		pClient = CClientSocket::getInstance();
+	} while (pClient == NULL);
+	for (;;) {
+		CPacket pack(6, NULL, 0);
+		bool ret = pClient->Send(pack);// 申请监控画面
+		if (ret) {
+			int cmd = pClient->DealCommand();// 拿到数据
+            if (cmd == 6) {
+                if (m_isFull == false) {
+                    BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
+					//TODO: 存入缓冲区
+					m_isFull = true;
+				}
+            }
+		}
+		else {
+			Sleep(1);// 防止send时网络断开导致吃满cpu
+		}
 	}
 }
 
@@ -424,6 +454,7 @@ void CRemoteClientDlg::OnDownloadFile()
 	m_dlgStatus.SetActiveWindow();
 }
 
+// 删除文件
 void CRemoteClientDlg::OnDeleteFile()
 {
     HTREEITEM hSelected = m_Tree.GetSelectedItem();
@@ -438,6 +469,7 @@ void CRemoteClientDlg::OnDeleteFile()
 	LoadFileCurrent();
 }
 
+// 打开文件
 void CRemoteClientDlg::OnRunFile()
 {
 	HTREEITEM hSelected = m_Tree.GetSelectedItem();
