@@ -150,7 +150,7 @@ typedef struct MouseEvent
 // 查询网络连接错误码含义
 std::string GetErrInfo(int wasErrCode);
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 4096000
 
 class CClientSocket
 {
