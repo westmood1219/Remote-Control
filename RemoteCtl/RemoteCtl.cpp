@@ -187,7 +187,7 @@ int MouseEvent()
         default:
             break;
         }
-
+        
         // 处理组合后的逻辑状态
         switch (nFlags)
         {
