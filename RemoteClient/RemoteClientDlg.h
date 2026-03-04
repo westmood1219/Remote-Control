@@ -40,6 +40,7 @@ public:
 private:
 	CImage m_image;		// 画面缓存
 	bool m_isFull;		// 缓存区满了 true: 有缓存
+	bool m_isClosed;	// 监视是否关闭
 
 private:
 	static void threadEntryForWatchData(void* arg); // 静态函数不能用this指针->专注框架
