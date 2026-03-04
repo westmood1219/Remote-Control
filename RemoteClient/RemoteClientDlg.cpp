@@ -508,14 +508,15 @@ LRESULT CRemoteClientDlg::onSendPacket(WPARAM wParam, LPARAM lParam)
 	int cmd = wParam >> 1;
 	switch (cmd)
 	{
-	case 4:
-		{
+	case 4:{// 下载操作
 			CString strFile = (LPCSTR)lParam;
-			ret = SendCommandPacket(wParam >> 1, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+			ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 		}
 		break;
-	case 6:
-		{
+	case 5: {// 鼠标操作
+		ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
+    }
+	case 6:{// 监视操作
 			ret = SendCommandPacket(cmd, wParam & 1);
 		}
 		break;

@@ -139,7 +139,7 @@ typedef struct MouseEvent
         ptXY.x = 0;
         ptXY.y = 0;
     }
-    WORD nAction;// 点击, 移动, 双击
+    WORD nAction;// 单击, 双击, 按下, 弹起
     WORD nButton;// 左键, 右键, 中键
     POINT ptXY;// 坐标
 }MOUSEEV, * PMOUSEEV;
@@ -150,7 +150,7 @@ typedef struct MouseEvent
 // 查询网络连接错误码含义
 std::string GetErrInfo(int wasErrCode);
 
-#define BUFFER_SIZE 4096000
+#define BUFFER_SIZE 2048000
 
 class CClientSocket
 {

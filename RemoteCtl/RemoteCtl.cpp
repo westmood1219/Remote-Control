@@ -181,12 +181,14 @@ int MouseEvent()
         case 2:// 按下
             nFlags |= 0x40;
             break;
-        case 3:// 放开
+        case 3:// 弹起/放开
             nFlags |= 0x80;
             break;
         default:
             break;
         }
+
+        TRACE("mouse event : %08X x:%d y:%d\r\n", nFlags, mouse.ptXY.x, mouse.ptXY.y);
         
         // 处理组合后的逻辑状态
         switch (nFlags)
