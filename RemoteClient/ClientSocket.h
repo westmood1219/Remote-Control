@@ -139,7 +139,7 @@ typedef struct MouseEvent
         ptXY.x = 0;
         ptXY.y = 0;
     }
-    WORD nAction;// 单击, 双击, 按下, 弹起
+    WORD nAction;// 单击, 双击, 按下, 弹起  (点击.移动.双击.弹起)
     WORD nButton;// 左键, 右键, 中键
     POINT ptXY;// 坐标
 }MOUSEEV, * PMOUSEEV;

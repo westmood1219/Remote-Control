@@ -38,4 +38,6 @@ public:
 	afx_msg void OnStnClickedWacth();
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 	virtual void OnOK();
+	afx_msg void OnBnClickedBtnLock();
+	afx_msg void OnBnClickedBtnUnlock();
 };

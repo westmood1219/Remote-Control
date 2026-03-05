@@ -520,13 +520,15 @@ LRESULT CRemoteClientDlg::onSendPacket(WPARAM wParam, LPARAM lParam)
 	case 5: {// 鼠标操作
 		ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
     }
-	case 6:{// 监视操作
+	case 6:
+	case 7:
+	case 8:
+	{// 监视操作
 			ret = SendCommandPacket(cmd, wParam & 1);
 		}
 		break;
 	default:
 		ret = -1;
-		break;
 	}
 	return ret;
 }

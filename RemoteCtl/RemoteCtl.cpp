@@ -193,55 +193,63 @@ int MouseEvent()
         // 处理组合后的逻辑状态
         switch (nFlags)
         {
-        case 0x21: // 左键双击
+        case 0x21://左键双击
             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
             mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
-        case 0x11: // 左键单击
+        case 0x11://左键单击
             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
             mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
             break;
-
-        case 0x22: // 右键双击
+        case 0x41://左键按下
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x81://左键放开
+            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x22://右键双击
             mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, GetMessageExtraInfo());
             mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, GetMessageExtraInfo());
-        case 0x12: // 右键单击
+        case 0x12://右键单击
             mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, GetMessageExtraInfo());
             mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, GetMessageExtraInfo());
             break;
-
-        case 0x24: // 中键双击
-            mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
+        case 0x42://右键按下
+            mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x82://右键放开
+            mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x24://中键双击
             mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, GetMessageExtraInfo());
-        case 0x14: // 中键单击
             mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
+        case 0x14://中键单击
+            mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, GetMessageExtraInfo());
+            mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x44://中键按下
             mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, GetMessageExtraInfo());
             break;
+        case 0x84://中键放开
+            mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
+            break;
+        case 0x08://单纯的鼠标移动
+        {
+            int x = GetSystemMetrics(SM_CXSCREEN);
+            int y = GetSystemMetrics(SM_CYSCREEN);
+            DWORD dx = (mouse.ptXY.x * 65535) / x;
+            DWORD dy = (mouse.ptXY.y * 65535) / y;
 
+            DWORD moveFlags = MOUSEEVENTF_MOVE |MOUSEEVENTF_ABSOLUTE;
+            
+            if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
+                moveFlags |= MOUSEEVENTF_LEFTDOWN;
 
-        case 0x41: // 左键按下
-            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
-            break;
-        case 0x42: // 右键按下
-            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
-            break;
-        case 0x44: // 中键按下
-            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, GetMessageExtraInfo());
-            break;
+            }
+            mouse_event(moveFlags, dx, dy, 0, GetMessageExtraInfo());
+        }
+            
+            
 
-        case 0x81: // 左键放开
-            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
-            break;
-        case 0x82: // 右键放开
-            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
-            break;
-        case 0x84: // 中键放开
-            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
-            break;
-
-        case 0x08: // 鼠标移动
-            mouse_event(MOUSEEVENTF_MOVE, mouse.ptXY.x, mouse.ptXY.y, 0, GetMessageExtraInfo());
-            break;
-        default:
             break;
         }
         // 发送鼠标状态
@@ -295,20 +303,29 @@ unsigned threadid = 0;
 
 unsigned _stdcall threadLockDlg(void* arg)
 {
-    TRACE("%s(%d): %d\r\n", __FUNCTION__, __LINE__, GetCurrentThreadId());
+    //TRACE("%s(%d): %d\r\n", __FUNCTION__, __LINE__, GetCurrentThreadId());
     // 创建覆盖全屏dialog
     dlg.Create(IDD_DIALOG_INFO, NULL);
     dlg.ShowWindow(SW_SHOW);
     CRect rect;
-    rect.left = -10;
+    rect.left = 0;
     rect.right = GetSystemMetrics(SM_CXFULLSCREEN);
-    rect.right *= 2;
     rect.top = 0;
-    rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
-    rect.bottom *= 2;
+    rect.bottom = GetSystemMetrics(SM_CYSCREEN);
     dlg.MoveWindow(rect);
+    // 文本框居中
+    CWnd* pText = dlg.GetDlgItem(IDC_STATIC);
+    if (pText) {
+        CRect rtText;
+        pText->GetWindowRect(rtText);
+        int nWidth = rtText.Width();
+        int x = (rect.right - nWidth) / 2;
+        int nHeight = rtText.Height();
+        int y = (rect.bottom - nHeight) / 2;
+        pText->MoveWindow(x, y, rtText.Width(), rtText.Height());
+    }
     // 窗口置顶
-    //dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+    dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
     // 限制鼠标功能
     ShowCursor(false);
     // 隐藏任务栏
@@ -316,7 +333,8 @@ unsigned _stdcall threadLockDlg(void* arg)
     // 限制鼠标活动范围
     rect.right = rect.left + 1;
     rect.top = rect.bottom + 1;
-    //dlg.GetWindowRect(rect);
+    dlg.GetWindowRect(rect);
+    //限制鼠标范围
     ClipCursor(rect);
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {
@@ -329,7 +347,10 @@ unsigned _stdcall threadLockDlg(void* arg)
             }
         }
     }
+    ClipCursor(NULL);
+    // 恢复鼠标
     ShowCursor(true);
+    // 恢复任务栏
     ShowWindow(FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);
     dlg.DestroyWindow();
     _endthreadex(0);
@@ -351,7 +372,7 @@ int LockMachine()
 int UnlockMachine()
 {
     PostThreadMessage(threadid, WM_KEYDOWN, VK_ESCAPE, 0);// 没有hwnd,用线程id传
-    CPacket pack(7, NULL, 0);
+    CPacket pack(8, NULL, 0);
     CServerSocket::getInstance()->Send(pack);
     return 0;
 }
