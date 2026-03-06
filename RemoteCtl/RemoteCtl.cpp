@@ -217,7 +217,7 @@ int MouseEvent()
             mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, GetMessageExtraInfo());
             break;
         case 0x82://右键放开
-            mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, GetMessageExtraInfo());
+            mouse_event(MOUSEEVENTF_RIGHTUP, mouse.ptXY.x, mouse.ptXY.y, 0, GetMessageExtraInfo());
             break;
         case 0x24://中键双击
             mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, GetMessageExtraInfo());
@@ -233,23 +233,7 @@ int MouseEvent()
             mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
             break;
         case 0x08://单纯的鼠标移动
-        {
-            int x = GetSystemMetrics(SM_CXSCREEN);
-            int y = GetSystemMetrics(SM_CYSCREEN);
-            DWORD dx = (mouse.ptXY.x * 65535) / x;
-            DWORD dy = (mouse.ptXY.y * 65535) / y;
-
-            DWORD moveFlags = MOUSEEVENTF_MOVE |MOUSEEVENTF_ABSOLUTE;
-            
-            if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
-                moveFlags |= MOUSEEVENTF_LEFTDOWN;
-
-            }
-            mouse_event(moveFlags, dx, dy, 0, GetMessageExtraInfo());
-        }
-            
-            
-
+            mouse_event(MOUSEEVENTF_MOVE, 0, 0, 0, GetMessageExtraInfo());
             break;
         }
         // 发送鼠标状态

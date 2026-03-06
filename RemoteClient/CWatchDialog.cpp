@@ -54,7 +54,7 @@ CPoint CWatchDialog::UserPoint2RemoteScreenPoint(CPoint& point, bool isScreen)
     TRACE("x = %d y = %d\r\n", point.x, point.y);
     m_picture.GetWindowRect(clientRect);
     TRACE("x = %d y = %d\r\n", clientRect.Width(), clientRect.Height());
-	return CPoint(point.x * m_nObjWidth / clientRect.Width(), (point.y * m_nObjHeight / clientRect.Height() - 61));
+	return CPoint(point.x * m_nObjWidth / clientRect.Width(), (point.y * m_nObjHeight / clientRect.Height() - 61));// 61是因为锁机解锁按钮需要空间
 }
 
 BOOL CWatchDialog::OnInitDialog()
@@ -115,7 +115,6 @@ void CWatchDialog::OnLButtonDown(UINT nFlags, CPoint point)
         TRACE("x = %d y = %d\r\n", point.x, point.y);
         //坐标转换
         CPoint remote = UserPoint2RemoteScreenPoint(point);
-        TRACE("矫正后======x = %d y = %d======\r\n", point.x, point.y);
         //封装send packet
         MOUSEEV event;
         event.ptXY = remote;
@@ -216,20 +215,8 @@ void CWatchDialog::OnMouseMove(UINT nFlags, CPoint point)
         //封装send packet
         MOUSEEV event;
         event.ptXY = remote;
-        event.nAction = 0;// 移动
-        if (nFlags & MK_LBUTTON) {
-            event.nButton = 0;
-        }
-        else if (nFlags & MK_LBUTTON) {
-            event.nButton = 1;
-        }
-        else if (nFlags & MK_RBUTTON) {
-            event.nButton = 2;
-        }
-        else {
-            event.nButton = 8;
-        }
-
+        event.nButton = 4;// 没有按键
+        event.nAction = 4;// 移动
         CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();
         pParent->SendMessage(WM_SEND_PACKET, 5 << 1 | 1, (WPARAM)&event);
     }

@@ -82,9 +82,9 @@ int CRemoteClientDlg::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, 
     }
     CPacket pack(nCmd, pData, nLength);
     ret = pClient->Send(pack);
-    TRACE("Send ret : %d\r\n", ret);
+    //TRACE("SendCommand ret : %d\r\n", ret);
     int cmd = pClient->DealCommand();
-    //TRACE("ack: %d\r\n", cmd);
+    TRACE("SendCommand ack: %d\r\n", cmd);
 	if (bAutoClose) {
 		pClient->CloseSocket();
 	}
@@ -520,6 +520,15 @@ LRESULT CRemoteClientDlg::onSendPacket(WPARAM wParam, LPARAM lParam)
 	case 5: {// 鼠标操作
 		ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
     }
+		break;// 这里的break没写会造成移动不了窗口,单击变双击等问题
+        /*具体如下:受控端收到这个“数据大小为 0”的包后，进入 GetMouseEvent(mouse) 进行解析。
+在 C++ 的网络接收底层（或者你的 CPacket 类里），如果你传了一个空数据，缓冲区通常是被 0 填充的（Zero-initialized），或者由于读取不到数据，MOUSEEV 结构体里的内存全是 00 00 00 00。
+
+结果就是，受控端解析出了这样一个结构体：
+
+mouse.nButton = 0;
+
+mouse.nAction = 0*/
 	case 6:
 	case 7:
 	case 8:
@@ -529,6 +538,7 @@ LRESULT CRemoteClientDlg::onSendPacket(WPARAM wParam, LPARAM lParam)
 		break;
 	default:
 		ret = -1;
+		break;
 	}
 	return ret;
 }
