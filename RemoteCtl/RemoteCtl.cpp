@@ -23,9 +23,7 @@ using namespace std;
 int main()
 {
     int nRetCode = 0;
-
     HMODULE hModule = ::GetModuleHandle(nullptr);
-
     if (hModule != nullptr)
     {
         // 初始化 MFC 并在失败时显示错误
@@ -37,36 +35,22 @@ int main()
         }
         else
         {
-            CCommand cmd;
-            //套接字初始化(socket, bind,listen,accept,read,write,close) 
+            CCommand cmd; 
             CServerSocket* pserver = CServerSocket::getInstance();
-            int count = 0;
-            if (pserver->InitSocket() == false) {
+            int ret = pserver->Run(CCommand::RunCommand
+            , &cmd);
+            switch (ret)
+            {
+            case -1:
                 MessageBox(NULL, _T("网络初始化异常,未能成功初始化,请检查网络状态!"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
                 exit(0);
-            }
-            while (CServerSocket::getInstance() != NULL) {
-                if (pserver->AcceptClient() == false) {
-                    if (count > 3) {
-                        MessageBox(NULL, _T("多次无法正常接入用户"), _T("结束程序"), MB_OK | MB_ICONERROR);
-                        exit(0);
-                    }
-                    MessageBox(NULL, _T("无法正常接入用户,自动重试"), _T("接入客户端失败"), MB_OK | MB_ICONERROR);
-                    count++;
-                }
-                TRACE("AcceptClient return true \r\n");
-                int ret = pserver->DealCommand();
-                TRACE("DealCommand ret:  %d \r\n", ret);
-                if (ret > 0)
-                {
-                    ret = cmd.ExcuteCommand(ret);
-                    if (ret != 0) {
-                        TRACE("执行命令失败, %d ret = %d\r\n", pserver->GetPacket().sCmd, ret);
-                    }
-                    pserver->CloseClient();
-                    //TRACE("Command has done!\r\n");
-                }
-                
+                break;
+            case -2:
+                MessageBox(NULL, _T("多次无法正常接入用户"), _T("结束程序"), MB_OK | MB_ICONERROR);
+                exit(0);
+                break;
+            default:
+                break;
             }
         }
     }
