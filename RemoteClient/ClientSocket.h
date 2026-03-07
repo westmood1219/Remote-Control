@@ -13,23 +13,23 @@ typedef struct file_info {
         HasNext = TRUE;
         memset(szFileName, 0, sizeof(szFileName));
     }
-    BOOL IsInvalid;     // æ˜¯å¦æœ‰æ•ˆ
-    BOOL IsDiretory;// æ˜¯å¦ä¸ºç›®å½• 0->å¦
-    BOOL HasNext;   // æ˜¯å¦æœ‰å­æ–‡ä»¶ 1->has
-    char szFileName[256];// æ–‡ä»¶å
+    BOOL IsInvalid;     // ÊÇ·ñÓĞĞ§
+    BOOL IsDiretory;// ÊÇ·ñÎªÄ¿Â¼ 0->·ñ
+    BOOL HasNext;   // ÊÇ·ñÓĞ×ÓÎÄ¼ş 1->has
+    char szFileName[256];// ÎÄ¼şÃû
 } FILEINFO, * PFILEINFO;
 
 #pragma pack(push)
 #pragma pack(1)
-#pragma warning(disable: 4267)// æš‚æ—¶ç¦ç”¨ size_t è½¬ DWORD çš„è­¦å‘Š
+#pragma warning(disable: 4267)// ÔİÊ±½ûÓÃ size_t ×ª DWORD µÄ¾¯¸æ
 
-// åŒ…å®šä¹‰ä¸è§£æç±»
+// °ü¶¨ÒåÓë½âÎöÀà
 class CPacket
 {
 public:
-    // ç©ºåŒ…åˆå§‹åŒ–
+    // ¿Õ°ü³õÊ¼»¯
     CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
-    // æ‹·è´æ„é€ 
+    // ¿½±´¹¹Ôì
     CPacket(const CPacket& packet) {
         sHead = packet.sHead;
         nLength = packet.nLength;
@@ -37,7 +37,7 @@ public:
         strData = packet.strData;
         sSum = packet.sSum;
     }
-    // èµ‹å€¼è¿ç®—ç¬¦é‡è½½
+    // ¸³ÖµÔËËã·ûÖØÔØ
     CPacket& operator=(const CPacket& packet) {
         if (this != &packet) {
             sHead = packet.sHead;
@@ -48,7 +48,7 @@ public:
         }
         return *this;
     }
-    // æ‰“åŒ…
+    // ´ò°ü
     CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
         sHead = 0xFEFF;
         nLength = nSize + 4;
@@ -66,23 +66,23 @@ public:
             sSum += BYTE(strData[j]) & 0xFF;
         }
     }
-    // åŒ…è§£æ
-    CPacket(const BYTE* pData, size_t& nSize) {//nSizeæ˜¯å¯»æ‰¾åŒ…å¤´çš„èŒƒå›´
+    // °ü½âÎö
+    CPacket(const BYTE* pData, size_t& nSize) {//nSizeÊÇÑ°ÕÒ°üÍ·µÄ·¶Î§
         size_t i = 0;
         for (i = 0; i < nSize; i++) {
             if (*(WORD*)(pData + i) == 0xFEFF) {
-                sHead = *(WORD*)(pData + i);//æ‰¾åˆ°äº†åŒ…å¤´,èµ‹å€¼ç»™sHead
-                i += 2;//é˜²æ­¢åªæœ‰ä¸€ä¸ªåŒ…å¤´å³nSize=2çš„æƒ…å†µ
+                sHead = *(WORD*)(pData + i);//ÕÒµ½ÁË°üÍ·,¸³Öµ¸øsHead
+                i += 2;//·ÀÖ¹Ö»ÓĞÒ»¸ö°üÍ·¼´nSize=2µÄÇé¿ö
                 break;
             }
         }
-        if (i + 8 > nSize) {//DWORDæ˜¯4ä¸ªå­—èŠ‚,å³ä¸€ä¸ªé•¿åº¦,ä¸€ä¸ªå‘½ä»¤,ä¸€ä¸ªå’Œæ ¡éªŒ(æ•°æ®å¦è¯´)
-            //åŒ…æ— æ³•æ¥æ”¶å®Œå…¨
-            nSize = 0;//æ²¡ä½¿ç”¨åˆ°ç¼“å†²åŒº,ç”¨åˆ°äº†0ä¸ªå­—èŠ‚
+        if (i + 8 > nSize) {//DWORDÊÇ4¸ö×Ö½Ú,¼´Ò»¸ö³¤¶È,Ò»¸öÃüÁî,Ò»¸öºÍĞ£Ñé(Êı¾İÁíËµ)
+            //°üÎŞ·¨½ÓÊÕÍêÈ«
+            nSize = 0;//Ã»Ê¹ÓÃµ½»º³åÇø,ÓÃµ½ÁË0¸ö×Ö½Ú
             return;
         }
         nLength = *(DWORD*)(pData + i); i += 4;
-        if (nLength + i > nSize) {//ç¼“å†²åŒºä¸å¤Ÿé•¿,åŒ…æœªå®Œå…¨æ¥æ”¶åˆ°
+        if (nLength + i > nSize) {//»º³åÇø²»¹»³¤,°üÎ´ÍêÈ«½ÓÊÕµ½
             nSize = 0;
             return;
         }
@@ -105,11 +105,11 @@ public:
         nSize = 0;
     }
     ~CPacket() {}
-    // åŒ…æ•°æ®çš„å¤§å°
+    // °üÊı¾İµÄ´óĞ¡
     int Size() {
         return nLength + 6;
     }
-    // åŒ…æ•°æ®çš„å€¼
+    // °üÊı¾İµÄÖµ
     const char* Data() {
         strOut.resize(nLength + 6);
         BYTE* pData = (BYTE*)strOut.c_str();
@@ -121,12 +121,12 @@ public:
         return strOut.c_str();
     }
 public:
-    WORD sHead;//å›ºå®šä½ FE FF
-    DWORD nLength;//åŒ…é•¿åº¦ ä»æ§åˆ¶å‘½ä»¤å¼€å§‹,åˆ°å’Œæ ¡éªŒç»“æŸ
-    WORD sCmd;//æ§åˆ¶å‘½ä»¤
-    std::string strData;//åŒ…æ•°æ®
-    WORD sSum;//å’Œæ ¡éªŒ
-    std::string strOut;//æ•´ä¸ªåŒ…çš„æ•°æ®
+    WORD sHead;//¹Ì¶¨Î» FE FF
+    DWORD nLength;//°ü³¤¶È ´Ó¿ØÖÆÃüÁî¿ªÊ¼,µ½ºÍĞ£Ñé½áÊø
+    WORD sCmd;//¿ØÖÆÃüÁî
+    std::string strData;//°üÊı¾İ
+    WORD sSum;//ºÍĞ£Ñé
+    std::string strOut;//Õû¸ö°üµÄÊı¾İ
 };
 #pragma pack(pop)
 
@@ -138,15 +138,15 @@ typedef struct MouseEvent
         ptXY.x = 0;
         ptXY.y = 0;
     }
-    WORD nAction;// å•å‡», åŒå‡», æŒ‰ä¸‹, å¼¹èµ·  (ç‚¹å‡».ç§»åŠ¨.åŒå‡».å¼¹èµ·)
-    WORD nButton;// å·¦é”®, å³é”®, ä¸­é”®
-    POINT ptXY;// åæ ‡
+    WORD nAction;// µ¥»÷, Ë«»÷, °´ÏÂ, µ¯Æğ  (µã»÷.ÒÆ¶¯.Ë«»÷.µ¯Æğ)
+    WORD nButton;// ×ó¼ü, ÓÒ¼ü, ÖĞ¼ü
+    POINT ptXY;// ×ø±ê
 }MOUSEEV, * PMOUSEEV;
 
 #pragma warning(push)
-#pragma warning(disable: 4267)// æš‚æ—¶ç¦ç”¨ size_t è½¬ DWORD çš„è­¦å‘Š
+#pragma warning(disable: 4267)// ÔİÊ±½ûÓÃ size_t ×ª DWORD µÄ¾¯¸æ
 
-// æŸ¥è¯¢ç½‘ç»œè¿æ¥é”™è¯¯ç å«ä¹‰
+// ²éÑ¯ÍøÂçÁ¬½Ó´íÎóÂëº¬Òå
 std::string GetErrInfo(int wasErrCode);
 
 #define BUFFER_SIZE 2048000
@@ -155,7 +155,7 @@ class CClientSocket
 {
 public:
     static CClientSocket* getInstance() {
-        if (m_instance == NULL) {//é™æ€å‡½æ•°æ²¡æœ‰thisæŒ‡é’ˆ,æ— æ³•ç›´æ¥è®¿é—®æˆå‘˜å˜é‡
+        if (m_instance == NULL) {//¾²Ì¬º¯ÊıÃ»ÓĞthisÖ¸Õë,ÎŞ·¨Ö±½Ó·ÃÎÊ³ÉÔ±±äÁ¿
             m_instance = new CClientSocket();
         }
         return m_instance;
@@ -165,20 +165,20 @@ public:
         if (m_sock != INVALID_SOCKET) CloseSocket();
         m_sock = socket(PF_INET, SOCK_STREAM, 0);
         if (m_sock == -1)return false;
-        //TODO: æ ¡éªŒ
+        //TODO: Ğ£Ñé
         sockaddr_in serv_adr;
         memset(&serv_adr, 0, sizeof(serv_adr));
         serv_adr.sin_addr.s_addr = htonl(nIP);
         serv_adr.sin_family = AF_INET;
         serv_adr.sin_port = htons(nPort);
         if (serv_adr.sin_addr.s_addr == INADDR_NONE) {
-            AfxMessageBox(_T("æŒ‡å®šçš„IPåœ°å€ä¸å­˜åœ¨"));
+            AfxMessageBox(_T("Ö¸¶¨µÄIPµØÖ·²»´æÔÚ"));
             return false;
         }
         int ret = connect(m_sock, (sockaddr*)&serv_adr, sizeof(serv_adr));
         if (ret == -1) {
-            AfxMessageBox(_T("è¿æ¥æœåŠ¡ç«¯å¤±è´¥"));
-            TRACE("è¿æ¥å¤±è´¥: %d %s \r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
+            AfxMessageBox(_T("Á¬½Ó·şÎñ¶ËÊ§°Ü"));
+            TRACE("Á¬½ÓÊ§°Ü: %d %s \r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
         }
         return true;
     }
@@ -189,17 +189,17 @@ public:
         char* buffer = m_buffer.data();
         static size_t index = 0;
         while (true) {
-            size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);//æ–°æ¥æ”¶äº†å¤šå°‘å­—èŠ‚
+            size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);//ĞÂ½ÓÊÕÁË¶àÉÙ×Ö½Ú
             //Dump((BYTE*)buffer,index);
             if (len <= 0 && index <= 0) {
                 return -1;
             }
-            index += len;//è¿™é‡Œæ˜¯æ€»é•¿åº¦
-            len = index;//ä¸€lenä¸¤ç”¨,ä¸‹é¢çš„lenè¡¨ç¤ºæ€»é•¿åº¦
-            m_packet = CPacket((BYTE*)buffer, len);//æ”¹å˜lenä¸ºä½¿ç”¨çš„lençš„é•¿åº¦
+            index += len;//ÕâÀïÊÇ×Ü³¤¶È
+            len = index;//Ò»lenÁ½ÓÃ,ÏÂÃæµÄlen±íÊ¾×Ü³¤¶È
+            m_packet = CPacket((BYTE*)buffer, len);//¸Ä±älenÎªÊ¹ÓÃµÄlenµÄ³¤¶È
             if (len > 0) {
                 memmove(buffer, buffer + len, index - len);
-                index -= len;//å‰©ä½™çš„ç¼“å†²åŒºå­—èŠ‚æ•°
+                index -= len;//Ê£ÓàµÄ»º³åÇø×Ö½ÚÊı
                 return m_packet.sCmd;
             }
         }
@@ -250,7 +250,7 @@ private:
     }
     CClientSocket() {
         if (InitSockEnv() == FALSE) {
-            MessageBox(NULL, _T("æ— æ³•åˆå§‹åŒ–å¥—æ¥å­—ç¯å¢ƒ,è¯·æ£€æŸ¥ç½‘ç»œè®¾ç½®"), _T("åˆå§‹åŒ–é”™è¯¯!"), MB_OK | MB_ICONERROR);
+            MessageBox(NULL, _T("ÎŞ·¨³õÊ¼»¯Ì×½Ó×Ö»·¾³,Çë¼ì²éÍøÂçÉèÖÃ"), _T("³õÊ¼»¯´íÎó!"), MB_OK | MB_ICONERROR);
             exit(0);
         }
         m_buffer.resize(BUFFER_SIZE);
@@ -287,5 +287,5 @@ private:
     };
     static CHelper m_helper;
 };
-#pragma warning(pop) // æ¢å¤ä¹‹å‰çš„è­¦å‘Šè®¾ç½®
+#pragma warning(pop) // »Ö¸´Ö®Ç°µÄ¾¯¸æÉèÖÃ
 
