@@ -58,7 +58,7 @@ CRemoteClientDlg::CRemoteClientDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_REMOTECLIENT_DIALOG, pParent)
 	, m_server_address(0)
 	, m_nPort(_T(""))
-	, m_isFull(false)
+	, m_isClosed(false)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -84,7 +84,6 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_DOWNLOAD_FILE, &CRemoteClientDlg::OnDownloadFile)
 	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
 	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
-	ON_MESSAGE(WM_SEND_PACKET, &CRemoteClientDlg::onSendPacket)//消息映射表添加项==注册消息③
 	ON_BN_CLICKED(IDC_BTN_START_WATCH, &CRemoteClientDlg::OnBnClickedBtnStartWatch)
     ON_WM_TIMER()
     ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERV, &CRemoteClientDlg::OnIpnFieldchangedIpaddressServ)
@@ -381,44 +380,6 @@ void CRemoteClientDlg::OnRunFile()
 	if (ret < 0) {
 		AfxMessageBox("打开文件命令执行失败!!");
 	}
-}
-
-// 实现!!!消息响应!!!函数④
-LRESULT CRemoteClientDlg::onSendPacket(WPARAM wParam, LPARAM lParam)
-{
-	int ret{};
-	int cmd = wParam >> 1;
-	switch (cmd)
-	{
-	case 4:{// 下载操作
-			CString strFile = (LPCSTR)lParam;
-			ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
-		}
-		break;
-	case 5: {// 鼠标操作
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
-    }
-		break;// 这里的break没写会造成移动不了窗口,单击变双击等问题
-        /*具体如下:受控端收到这个“数据大小为 0”的包后，进入 GetMouseEvent(mouse) 进行解析。
-在 C++ 的网络接收底层（或者你的 CPacket 类里），如果你传了一个空数据，缓冲区通常是被 0 填充的（Zero-initialized），或者由于读取不到数据，MOUSEEV 结构体里的内存全是 00 00 00 00。
-
-结果就是，受控端解析出了这样一个结构体：
-
-mouse.nButton = 0;
-
-mouse.nAction = 0*/
-	case 6:
-	case 7:
-	case 8:
-	{// 监视操作
-			ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
-		}
-		break;
-	default:
-		ret = -1;
-		break;
-	}
-	return ret;
 }
 
 // 开启监视线程

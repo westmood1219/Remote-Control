@@ -48,18 +48,7 @@ public:
     // 3->打开文件 4->下载文件 5->鼠标操作
     // 6->发送屏幕内容 7->锁 8->解锁 9->删除文件
     // 1981->测试连接 返回值是命令号,小于0则命令错误
-    int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0) {
-        CClientSocket* pClient = CClientSocket::getInstance();
-        if (pClient->InitSocket() == false) return false;
-        pClient->Send(CPacket(nCmd,pData,nLength));
-        //TRACE("SendCommand ret : %d\r\n", ret);
-        int cmd = DealCommand();
-        TRACE("SendCommand ack: %d\r\n", cmd);
-        if (bAutoClose) {
-            CloseSocket();
-        }
-        return cmd;
-    }
+    int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0);
 
     // 获得监控画面
     int GetImage(CImage& image) {
@@ -67,25 +56,7 @@ public:
     }
 
     // 下载文件
-    int DownFile(CString strPath) {
-        // 初始化文件对话框
-        CFileDialog dlg(false, NULL,
-            strPath, OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY,
-            NULL, &m_remoteDlg);
-        if (dlg.DoModal() == IDOK) {
-            m_strRemote = strPath;// 拿到传过来的文件路径
-            m_strLocal = dlg.GetPathName();// 用户选择保存的路径
-            if (WaitForSingleObject(m_hThreadDownload, 0) == WAIT_TIMEOUT) {
-                return 01;
-            }
-            m_remoteDlg.BeginWaitCursor();
-            m_statusDlg.m_info.SetWindowText(_T("命令正在执行中!"));
-            m_statusDlg.ShowWindow(SW_SHOW);
-            m_statusDlg.CenterWindow(&m_remoteDlg);
-            m_statusDlg.SetActiveWindow();
-        }
-        return 0;
-    }
+    int DownFile(CString strPath);
 
     void StartWatchScreen();
 
@@ -96,7 +67,7 @@ protected:
     void threadDownloadFile();
     static void threadDownloadEntry(void* arg);
     
-    CClientController(): 
+    CClientController() :
         m_statusDlg(&m_remoteDlg),
         m_watchDlg(&m_remoteDlg)
     {
@@ -118,6 +89,7 @@ protected:
         if (m_instance != NULL) {
             delete m_instance;
             m_instance = NULL;
+            TRACE("CClientController has released\r\n" );
         }
     }
 
@@ -149,8 +121,8 @@ private:
     }MSGINFO;
     typedef LRESULT(CClientController::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
     static std::map<UINT, MSGFUNC> m_mapFunc;
-    CWatchDialog m_watchDlg;
     CRemoteClientDlg m_remoteDlg;
+    CWatchDialog m_watchDlg;
     CStatusDlg m_statusDlg;
     HANDLE m_hThread;
     HANDLE m_hThreadDownload;
@@ -165,7 +137,7 @@ private:
     class CHelper {
     public:
         CHelper() {
-            CClientController::getInstance();
+            //CClientController::getInstance();
         }
         ~CHelper() {
             CClientController::releaseInstance();

@@ -65,7 +65,9 @@ public:
         }
     }
     // 包解析
-    CPacket(const BYTE* pData, size_t& nSize) {//nSize是寻找包头的范围
+    CPacket(const BYTE* pData, size_t& nSize)
+        : sHead(0), nLength(0), sCmd(0), sSum(0), strData()
+    {//nSize是寻找包头的范围
         size_t i = 0;
         for (i = 0; i < nSize; i++) {
             if (*(WORD*)(pData + i) == 0xFEFF) {
@@ -184,12 +186,12 @@ public:
 
     int DealCommand() {
         if (m_sock == -1) return -1;
-        char* buffer = m_buffer.data();
+        char* buffer = m_buffer.data();// 多线程发送命令时可以出现冲突
         static size_t index = 0;
         while (true) {
             size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);//新接收了多少字节
             //Dump((BYTE*)buffer,index);
-            if (len <= 0 && index <= 0) {
+            if ((int)len <= 0 && (int)index <= 0) {
                 return -1;
             }
             index += len;//这里是总长度
@@ -286,6 +288,7 @@ private:
             CClientSocket* tmp = m_instance;
             m_instance = NULL;
             delete tmp;
+            //TRACE("CClientSocket has released\r\n");
         }
     }
     static CClientSocket* m_instance;

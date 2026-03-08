@@ -21,10 +21,18 @@ public:
 	int m_nObjHeight;
 
 protected:
+	bool m_isFull;		// 缓存区满了 true: 有缓存
+	
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
-
 	DECLARE_MESSAGE_MAP()
 public:
+
+    bool isFull() const {
+        return m_isFull;
+    }
+    void SetImageStatus(bool isFull = false) {
+        m_isFull = isFull;
+    }
 	CPoint UserPoint2RemoteScreenPoint(CPoint& point, bool isScreen = false);
 	virtual BOOL OnInitDialog();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
