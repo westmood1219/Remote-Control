@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-void Dump(BYTE* pData, size_t nSize);
-
 typedef struct file_info {
     file_info() {
         IsInvalid = FALSE;
@@ -109,9 +107,9 @@ public:
     int Size() {
         return nLength + 6;
     }
-    // 包数据的值
-    const char* Data() {
-        strOut.resize(nLength + 6);
+    // 包数据的值给到传入的strOut
+    const char* Data(std::string& strOut) const{
+        strOut.resize(nLength + 6);//nLength不包括nlength本身和包头
         BYTE* pData = (BYTE*)strOut.c_str();
         *(WORD*)pData = sHead; pData += 2;
         *(DWORD*)(pData) = nLength; pData += 4;
@@ -126,7 +124,7 @@ public:
     WORD sCmd;//控制命令
     std::string strData;//包数据
     WORD sSum;//和校验
-    std::string strOut;//整个包的数据
+    //std::string strOut;//整个包的数据
 };
 #pragma pack(pop)
 
@@ -161,16 +159,16 @@ public:
         return m_instance;
     }
 
-    bool InitSocket(int nIP, int nPort) {
+    bool InitSocket() {
         if (m_sock != INVALID_SOCKET) CloseSocket();
         m_sock = socket(PF_INET, SOCK_STREAM, 0);
         if (m_sock == -1)return false;
         //TODO: 校验
         sockaddr_in serv_adr;
         memset(&serv_adr, 0, sizeof(serv_adr));
-        serv_adr.sin_addr.s_addr = htonl(nIP);
+        serv_adr.sin_addr.s_addr = htonl(m_nIP);
         serv_adr.sin_family = AF_INET;
-        serv_adr.sin_port = htons(nPort);
+        serv_adr.sin_port = htons(m_nPort);
         if (serv_adr.sin_addr.s_addr == INADDR_NONE) {
             AfxMessageBox(_T("指定的IP地址不存在"));
             return false;
@@ -209,9 +207,11 @@ public:
     bool Send(const char* pData, int nSize) {
         return send(m_sock, pData, nSize, 0) > 0;
     }
-    bool Send(CPacket& packet) {
+    bool Send(const CPacket& packet) {
         if (m_sock == -1) return false;
-        return send(m_sock, packet.Data(), packet.Size(), 0) > 0;
+        std::string strOut;
+        packet.Data(strOut);
+        return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
     }
 
     bool GetFilePath(std::string& strPath) {
@@ -240,15 +240,28 @@ public:
         m_sock = INVALID_SOCKET;
     }
 
+    void UpdateAddress(int nIP, int nPort) {
+        m_nIP = nIP;
+        m_nPort = nPort;
+    }
+
 private:
+    int m_nIP;//地址
+    int m_nPort;//端口
     SOCKET m_sock;
     CPacket m_packet;
     std::vector<char> m_buffer;
     CClientSocket& operator=(const CClientSocket& ss) {}
-    CClientSocket(const CClientSocket& ss) {
+    CClientSocket(const CClientSocket& ss)
+    {
         m_sock = ss.m_sock;
+        m_nIP = ss.m_nIP;
+        m_nPort = ss.m_nPort;
     }
-    CClientSocket() {
+    CClientSocket() :
+        m_nIP(INADDR_ANY),
+        m_nPort(0) 
+    {
         if (InitSockEnv() == FALSE) {
             MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
             exit(0);

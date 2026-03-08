@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MyTool.h"
 #include "RemoteClientDlg.h"
 #include "ClientSocket.h"
 #include "CWatchDialog.h"
@@ -25,11 +26,83 @@ public:
     int Invoke(CWnd*& pMainWnd);
     // 发送消息
     LRESULT SendMessage(MSG msg);
+    // 更新网络服务器地址
+    void UpdateAddress(int nIP, int nPort) {
+    CClientSocket::getInstance()->UpdateAddress(nIP, nPort);
+    }
+    // 处理命令
+    int DealCommand() {
+        return CClientSocket::getInstance()->DealCommand();
+    }
+    // 关闭套接字
+    void CloseSocket() {
+        CClientSocket::getInstance()->CloseSocket();
+    }
+    // 发包
+    bool SendPacket(const CPacket& pack) {
+        CClientSocket* pClient = CClientSocket::getInstance();
+        if (pClient->InitSocket() == false) return false;
+        return pClient->Send(pack);
+    }
+    // 发命令包//1->查看磁盘分区 2->查看指定目录下的文件
+    // 3->打开文件 4->下载文件 5->鼠标操作
+    // 6->发送屏幕内容 7->锁 8->解锁 9->删除文件
+    // 1981->测试连接 返回值是命令号,小于0则命令错误
+    int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0) {
+        CClientSocket* pClient = CClientSocket::getInstance();
+        if (pClient->InitSocket() == false) return false;
+        pClient->Send(CPacket(nCmd,pData,nLength));
+        //TRACE("SendCommand ret : %d\r\n", ret);
+        int cmd = DealCommand();
+        TRACE("SendCommand ack: %d\r\n", cmd);
+        if (bAutoClose) {
+            CloseSocket();
+        }
+        return cmd;
+    }
+
+    // 获得监控画面
+    int GetImage(CImage& image) {
+        return CMyTool::Bytes2Image(image, CClientSocket::getInstance()->GetPacket().strData);
+    }
+
+    // 下载文件
+    int DownFile(CString strPath) {
+        // 初始化文件对话框
+        CFileDialog dlg(false, NULL,
+            strPath, OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY,
+            NULL, &m_remoteDlg);
+        if (dlg.DoModal() == IDOK) {
+            m_strRemote = strPath;// 拿到传过来的文件路径
+            m_strLocal = dlg.GetPathName();// 用户选择保存的路径
+            if (WaitForSingleObject(m_hThreadDownload, 0) == WAIT_TIMEOUT) {
+                return 01;
+            }
+            m_remoteDlg.BeginWaitCursor();
+            m_statusDlg.m_info.SetWindowText(_T("命令正在执行中!"));
+            m_statusDlg.ShowWindow(SW_SHOW);
+            m_statusDlg.CenterWindow(&m_remoteDlg);
+            m_statusDlg.SetActiveWindow();
+        }
+        return 0;
+    }
+
+    void StartWatchScreen();
+
 protected:
+    static void threadEntryForWatchData(void* arg);
+    void threadWatchScreen();
+
+    void threadDownloadFile();
+    static void threadDownloadEntry(void* arg);
+    
     CClientController(): 
         m_statusDlg(&m_remoteDlg),
         m_watchDlg(&m_remoteDlg)
     {
+        m_isClosed = true;
+        m_hThreadWatch = INVALID_HANDLE_VALUE;
+        m_hThreadDownload = INVALID_HANDLE_VALUE;
         m_hThread = INVALID_HANDLE_VALUE;
         m_nThreadID = -1;
     }
@@ -80,6 +153,13 @@ private:
     CRemoteClientDlg m_remoteDlg;
     CStatusDlg m_statusDlg;
     HANDLE m_hThread;
+    HANDLE m_hThreadDownload;
+    HANDLE m_hThreadWatch;
+    bool m_isClosed;	// 监视是否关闭
+    // 下载文件的远程路径
+    CString m_strRemote;
+    // 下载文件的本地保存路径
+    CString m_strLocal;
     unsigned m_nThreadID;
     static CClientController* m_instance;
     class CHelper {
