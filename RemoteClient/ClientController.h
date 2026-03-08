@@ -8,8 +8,8 @@
 #include "map"
 #include "resource.h"
 
-#define WM_SEND_PACK (WM_USER+1)// 发送包数据
-#define WM_SEND_DATA (WM_USER+2)// 发送数据
+//#define WM_SEND_PACK (WM_USER+1)// 发送包数据
+//#define WM_SEND_DATA (WM_USER+2)// 发送数据
 #define WM_SHOW_STATUS (WM_USER+3)// 展示状态
 #define WM_SHOW_WATCH (WM_USER+4)// 远程监控
 #define WM_SEND_MESSAGE (WM_USER+0x1000)// 自定义消息处理
@@ -38,17 +38,12 @@ public:
     void CloseSocket() {
         CClientSocket::getInstance()->CloseSocket();
     }
-    // 发包
-    bool SendPacket(const CPacket& pack) {
-        CClientSocket* pClient = CClientSocket::getInstance();
-        if (pClient->InitSocket() == false) return false;
-        return pClient->Send(pack);
-    }
+
     // 发命令包//1->查看磁盘分区 2->查看指定目录下的文件
     // 3->打开文件 4->下载文件 5->鼠标操作
     // 6->发送屏幕内容 7->锁 8->解锁 9->删除文件
     // 1981->测试连接 返回值是命令号,小于0则命令错误
-    int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0);
+    int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0, std::list<CPacket>* plstPacks = NULL);
 
     // 获得监控画面
     int GetImage(CImage& image) {
@@ -93,8 +88,6 @@ protected:
         }
     }
 
-    LRESULT onSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam);
-    LRESULT onSendData(UINT nMsg, WPARAM wParam, LPARAM lParam);
     LRESULT onShowStatus(UINT nMsg, WPARAM wParam, LPARAM lParam);
     LRESULT onShowWatcher(UINT nMsg, WPARAM wParam, LPARAM lParam);
 

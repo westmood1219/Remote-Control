@@ -211,14 +211,29 @@ public:
         return -1;
     }
 
-    bool Send(const char* pData, int nSize) {
-        return send(m_sock, pData, nSize, 0) > 0;
-    }
-    bool Send(const CPacket& packet) {
-        if (m_sock == -1) return false;
-        std::string strOut;
-        packet.Data(strOut);
-        return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
+    bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks) {
+        // 发包的时候一定需要网络 这时候可以初始化socket并开启包处理线程
+        if (m_sock = INVALID_SOCKET) {
+            if (InitSocket() == false) return false;
+            memset(m_buffer.data(), 0, BUFFER_SIZE);
+            _beginthread(&CClientSocket::threadEntry, 0, this);
+        }
+        // 追加 包列表 无限等待包处理 事件激活
+        m_lstSend.push_back(pack);
+        WaitForSingleObject(pack.hEvent, INFINITE);
+        std::map<HANDLE, std::list<CPacket>>::iterator it;
+        it = m_mapAck.find(pack.hEvent);
+        // 找到事件对应的包后增加列表包?什么鬼 /取消对应事件应答
+        if (it != m_mapAck.end()) {
+            std::list<CPacket>::iterator i;
+            for (i = it->second.begin();i!=it->second.end();++i)
+            {
+                lstPacks.push_back(*i);
+            }
+            m_mapAck.erase(it);
+            return true;
+        }
+        return false;
     }
 
     bool GetFilePath(std::string& strPath) {
@@ -248,8 +263,11 @@ public:
     }
 
     void UpdateAddress(int nIP, int nPort) {
-        m_nIP = nIP;
-        m_nPort = nPort;
+        if ((m_nIP != nIP) || (m_nPort != nPort)) {
+
+            m_nIP = nIP;
+            m_nPort = nPort;
+        }
     }
 
 private:
@@ -269,14 +287,14 @@ private:
     }
     CClientSocket() :
         m_nIP(INADDR_ANY),
-        m_nPort(0) 
+        m_nPort(0) ,
+        m_sock(INVALID_SOCKET)
     {
         if (InitSockEnv() == FALSE) {
             MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
             exit(0);
         }
         m_buffer.resize(BUFFER_SIZE);
-        memset(m_buffer.data(), 0, BUFFER_SIZE);
     }
     ~CClientSocket() {
         closesocket(m_sock);
@@ -302,6 +320,12 @@ private:
         }
     }
     static CClientSocket* m_instance;
+
+    bool Send(const char* pData, int nSize) {
+        return send(m_sock, pData, nSize, 0) > 0;
+    }
+    bool Send(const CPacket& packet);
+
     class CHelper {
     public:
         CHelper() {

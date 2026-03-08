@@ -14,8 +14,6 @@ CClientController* CClientController::getInstance()
         TRACE("CClientController size is %d\r\n", sizeof(*m_instance));
         struct { UINT nMsg; MSGFUNC func; }MsgFuncs[] =
         {
-            {WM_SEND_PACK, &CClientController::onSendPack},
-            {WM_SEND_DATA, &CClientController::onSendData},
             {WM_SHOW_STATUS, &CClientController::onShowStatus},
             {WM_SHOW_WATCH, &CClientController::onShowWatcher},
             {(UINT) - 1,nullptr}
@@ -59,20 +57,6 @@ unsigned __stdcall CClientController::threadEntry(void* arg)
     thiz->threadFunc();
     _endthreadex(0);
     return 0;
-}
-
-LRESULT CClientController::onSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
-{
-    CClientSocket* pClient = CClientSocket::getInstance();
-    const CPacket* pPacket = (CPacket*)wParam;
-    return pClient->Send(*pPacket);
-}
-
-LRESULT CClientController::onSendData(UINT nMsg, WPARAM wParam, LPARAM lParam)
-{
-    CClientSocket* pClient = CClientSocket::getInstance();
-    char* pBuffer = (char*)wParam;
-    return pClient->Send(pBuffer, (int)lParam);
 }
 
 LRESULT CClientController::onShowStatus(UINT nMsg, WPARAM wParam, LPARAM lParam)
@@ -134,20 +118,22 @@ void CClientController::threadDownloadEntry(void* arg)
     _endthread();
 }
 
-int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength)
+int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength,
+    std::list<CPacket>* plstPacks)
 {
     CClientSocket* pClient = CClientSocket::getInstance();
-    if (pClient->InitSocket() == false) return false;
     HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     // 不应该直接发送   而是投入到队列里面
-    pClient->Send(CPacket(nCmd, pData, nLength, hEvent));
-    //TRACE("SendCommand ret : %d\r\n", ret);
-    int cmd = DealCommand();
-    TRACE("SendCommand ack: %d\r\n", cmd);
-    if (bAutoClose) {
-        CloseSocket();
+    std::list<CPacket> lstPacks;//应答结果包
+    if (plstPacks == NULL) {
+        plstPacks = &lstPacks;
     }
-    return cmd;
+    pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent),lstPacks);
+    //TRACE("SendCommand ret : %d\r\n", ret);
+    if (plstPacks->size() > 0) {
+        return plstPacks->front().sCmd;
+    }
+    return -1;
 }
 
 int CClientController::DownFile(CString strPath)
@@ -193,9 +179,10 @@ void CClientController::threadWatchScreen()
     Sleep(50);
     while (!m_isClosed) {
         if(m_watchDlg.isFull() == false) {
-            int ret = SendCommandPacket(6);
+            std::list<CPacket> lstPacks;
+            int ret = SendCommandPacket(6,true,NULL,0,&lstPacks);
             if (ret == 6) { 
-                if (GetImage(m_remoteDlg.GetImage()) == 0) {
+                if ( CMyTool::Bytes2Image(m_remoteDlg.GetImage(), lstPacks.front().strData) == 0) {
                     m_watchDlg.SetImageStatus(true);
                 }
                 else {
