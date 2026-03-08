@@ -3,6 +3,8 @@
 #include "framework.h"
 #include <string>
 #include <vector>
+#include <list>
+#include <map>
 
 typedef struct file_info {
     file_info() {
@@ -16,6 +18,19 @@ typedef struct file_info {
     BOOL HasNext;   // 是否有子文件 1->has
     char szFileName[256];// 文件名
 } FILEINFO, * PFILEINFO;
+
+typedef struct MouseEvent
+{
+    MouseEvent() {
+        nAction = 0;
+        nButton = -1;
+        ptXY.x = 0;
+        ptXY.y = 0;
+    }
+    WORD nAction;// 单击, 双击, 按下, 弹起  (点击.移动.双击.弹起)
+    WORD nButton;// 左键, 右键, 中键
+    POINT ptXY;// 坐标
+}MOUSEEV, * PMOUSEEV;
 
 #pragma pack(push)
 #pragma pack(1)
@@ -34,6 +49,7 @@ public:
         sCmd = packet.sCmd;
         strData = packet.strData;
         sSum = packet.sSum;
+        hEvent = packet.hEvent;
     }
     // 赋值运算符重载
     CPacket& operator=(const CPacket& packet) {
@@ -43,11 +59,12 @@ public:
             sCmd = packet.sCmd;
             strData = packet.strData;
             sSum = packet.sSum;
+            hEvent = packet.hEvent;
         }
         return *this;
     }
     // 打包
-    CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
+    CPacket(WORD nCmd, const BYTE* pData, size_t nSize, HANDLE hEvent) {
         sHead = 0xFEFF;
         nLength = nSize + 4;
         sCmd = nCmd;
@@ -63,11 +80,10 @@ public:
         {
             sSum += BYTE(strData[j]) & 0xFF;
         }
+        this->hEvent = hEvent;
     }
     // 包解析
-    CPacket(const BYTE* pData, size_t& nSize)
-        : sHead(0), nLength(0), sCmd(0), sSum(0), strData()
-    {//nSize是寻找包头的范围
+    CPacket(const BYTE* pData, size_t& nSize): hEvent(INVALID_HANDLE_VALUE){//nSize是寻找包头的范围
         size_t i = 0;
         for (i = 0; i < nSize; i++) {
             if (*(WORD*)(pData + i) == 0xFEFF) {
@@ -127,21 +143,10 @@ public:
     std::string strData;//包数据
     WORD sSum;//和校验
     //std::string strOut;//整个包的数据
+    HANDLE hEvent;
 };
 #pragma pack(pop)
 
-typedef struct MouseEvent
-{
-    MouseEvent() {
-        nAction = 0;
-        nButton = -1;
-        ptXY.x = 0;
-        ptXY.y = 0;
-    }
-    WORD nAction;// 单击, 双击, 按下, 弹起  (点击.移动.双击.弹起)
-    WORD nButton;// 左键, 右键, 中键
-    POINT ptXY;// 坐标
-}MOUSEEV, * PMOUSEEV;
 
 #pragma warning(push)
 #pragma warning(disable: 4267)// 暂时禁用 size_t 转 DWORD 的警告
@@ -248,6 +253,8 @@ public:
     }
 
 private:
+    std::list<CPacket> m_lstSend;
+    std::map<HANDLE, std::list<CPacket> > m_mapAck;
     int m_nIP;//地址
     int m_nPort;//端口
     SOCKET m_sock;
@@ -273,8 +280,11 @@ private:
     }
     ~CClientSocket() {
         closesocket(m_sock);
+        m_sock = INVALID_SOCKET;
         WSACleanup();
     }
+    static void threadEntry(void* arg);
+    void threadFunc();
     BOOL InitSockEnv()
     {
         WSADATA data;

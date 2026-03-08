@@ -138,7 +138,9 @@ int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData,
 {
     CClientSocket* pClient = CClientSocket::getInstance();
     if (pClient->InitSocket() == false) return false;
-    pClient->Send(CPacket(nCmd, pData, nLength));
+    HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    // 不应该直接发送   而是投入到队列里面
+    pClient->Send(CPacket(nCmd, pData, nLength, hEvent));
     //TRACE("SendCommand ret : %d\r\n", ret);
     int cmd = DealCommand();
     TRACE("SendCommand ack: %d\r\n", cmd);
