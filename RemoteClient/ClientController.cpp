@@ -47,6 +47,7 @@ LRESULT CClientController::SendMessage(MSG msg)
     MsgInfo info(msg);
     PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM)&info, (LPARAM)hEvent);
     WaitForSingleObject(hEvent, -1);
+    CloseHandle(hEvent);
     return info.result;
 }
 
@@ -121,15 +122,18 @@ void CClientController::threadDownloadEntry(void* arg)
 int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength,
     std::list<CPacket>* plstPacks)
 {
-    CClientSocket* pClient = CClientSocket::getInstance();
     HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     // 不应该直接发送   而是投入到队列里面
     std::list<CPacket> lstPacks;//应答结果包
+    // 包列表指针获取 发包
     if (plstPacks == NULL) {
         plstPacks = &lstPacks;
     }
-    pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent),lstPacks);
-    //TRACE("SendCommand ret : %d\r\n", ret);
+    // 调用model层 发送命令给服务端
+    CClientSocket* pClient = CClientSocket::getInstance();
+    pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent),*plstPacks, bAutoClose);
+    CloseHandle(hEvent); //回收事件句柄,防止资源耗尽
+    // 发完了返回命令值
     if (plstPacks->size() > 0) {
         return plstPacks->front().sCmd;
     }
@@ -178,12 +182,13 @@ void CClientController::threadWatchScreen()
 {
     Sleep(50);
     while (!m_isClosed) {
-        if(m_watchDlg.isFull() == false) {
+        if (m_watchDlg.isFull() == false) {
             std::list<CPacket> lstPacks;
-            int ret = SendCommandPacket(6,true,NULL,0,&lstPacks);
-            if (ret == 6) { 
-                if ( CMyTool::Bytes2Image(m_remoteDlg.GetImage(), lstPacks.front().strData) == 0) {
+            int ret = SendCommandPacket(6, true, NULL, 0, &lstPacks);
+            if (ret == 6) {
+                if (CMyTool::Bytes2Image(m_watchDlg.GetImage(), lstPacks.front().strData) == 0) {
                     m_watchDlg.SetImageStatus(true);
+                    TRACE("成功获取图片\r\n");
                 }
                 else {
                     TRACE("获取图片失败:ret = %d\r\n", ret);

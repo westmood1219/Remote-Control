@@ -82,7 +82,7 @@ protected:
     int DealCommand() {
         if (m_client == -1) return -1;
         char* buffer = new char[BUFFER_SIZE];
-        TRACE("new buffer \r\n");
+        //TRACE("new buffer \r\n");
         if (buffer == NULL) {
             TRACE("内存不足\r\n");
             return -2;
@@ -104,7 +104,7 @@ protected:
                 memmove(buffer, buffer + len, BUFFER_SIZE - len);
                 index -= len;//剩余的缓冲区字节数
                 delete[] buffer;
-                TRACE("delete buffer 2\r\n");
+                //TRACE("delete buffer 2\r\n");
                 return m_packet.sCmd;
             }
         }

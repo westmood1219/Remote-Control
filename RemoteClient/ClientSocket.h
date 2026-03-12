@@ -5,6 +5,7 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <mutex>
 
 typedef struct file_info {
     file_info() {
@@ -154,7 +155,8 @@ public:
 // 查询网络连接错误码含义
 std::string GetErrInfo(int wasErrCode);
 
-#define BUFFER_SIZE 2048000
+#define BUFFER_SIZE 4096000
+#define WM_SEND_PACK (WM_USER+1)// 发送包数据
 
 class CClientSocket
 {
@@ -166,27 +168,7 @@ public:
         return m_instance;
     }
 
-    bool InitSocket() {
-        if (m_sock != INVALID_SOCKET) CloseSocket();
-        m_sock = socket(PF_INET, SOCK_STREAM, 0);
-        if (m_sock == -1)return false;
-        //TODO: 校验
-        sockaddr_in serv_adr;
-        memset(&serv_adr, 0, sizeof(serv_adr));
-        serv_adr.sin_addr.s_addr = htonl(m_nIP);
-        serv_adr.sin_family = AF_INET;
-        serv_adr.sin_port = htons(m_nPort);
-        if (serv_adr.sin_addr.s_addr == INADDR_NONE) {
-            AfxMessageBox(_T("指定的IP地址不存在"));
-            return false;
-        }
-        int ret = connect(m_sock, (sockaddr*)&serv_adr, sizeof(serv_adr));
-        if (ret == -1) {
-            AfxMessageBox(_T("连接服务端失败"));
-            TRACE("连接失败: %d %s \r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
-        }
-        return true;
-    }
+    bool InitSocket();
 
 
     int DealCommand() {
@@ -211,30 +193,7 @@ public:
         return -1;
     }
 
-    bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks) {
-        // 发包的时候一定需要网络 这时候可以初始化socket并开启包处理线程
-        if (m_sock = INVALID_SOCKET) {
-            if (InitSocket() == false) return false;
-            memset(m_buffer.data(), 0, BUFFER_SIZE);
-            _beginthread(&CClientSocket::threadEntry, 0, this);
-        }
-        // 追加 包列表 无限等待包处理 事件激活
-        m_lstSend.push_back(pack);
-        WaitForSingleObject(pack.hEvent, INFINITE);
-        std::map<HANDLE, std::list<CPacket>>::iterator it;
-        it = m_mapAck.find(pack.hEvent);
-        // 找到事件对应的包后增加列表包?什么鬼 /取消对应事件应答
-        if (it != m_mapAck.end()) {
-            std::list<CPacket>::iterator i;
-            for (i = it->second.begin();i!=it->second.end();++i)
-            {
-                lstPacks.push_back(*i);
-            }
-            m_mapAck.erase(it);
-            return true;
-        }
-        return false;
-    }
+    bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, bool isAutoClosed = true);
 
     bool GetFilePath(std::string& strPath) {
         if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4)) {
@@ -271,38 +230,67 @@ public:
     }
 
 private:
-    std::list<CPacket> m_lstSend;
-    std::map<HANDLE, std::list<CPacket> > m_mapAck;
+    typedef void(CClientSocket::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
+    std::map<UINT, MSGFUNC> m_mapFunc;
+    HANDLE m_hThread;
+    std::mutex m_lock;
+    bool m_bAutoCLose;
+    std::list<CPacket> m_lstSend;// 发送 包列表
+    std::map<HANDLE, std::list<CPacket>&> m_mapAck; // 事件映射哈希表
+    std::map<HANDLE, bool> m_mapAutoClosed;
     int m_nIP;//地址
     int m_nPort;//端口
-    SOCKET m_sock;
-    CPacket m_packet;
-    std::vector<char> m_buffer;
+    SOCKET m_sock;// 套接字
+    CPacket m_packet; // 正在处理的包
+    std::vector<char> m_buffer; // recv 包的缓存区
     CClientSocket& operator=(const CClientSocket& ss) {}
+    // 构造析构
     CClientSocket(const CClientSocket& ss)
     {
         m_sock = ss.m_sock;
         m_nIP = ss.m_nIP;
         m_nPort = ss.m_nPort;
+        m_bAutoCLose = ss.m_bAutoCLose;
+        m_hThread = INVALID_HANDLE_VALUE;
+        struct
+        {
+            UINT message;
+            MSGFUNC func;
+        }funcs[] = {
+            {WM_SEND_PACK,&CClientSocket::SendPack},
+            {0,NULL}
+        };
+        for (int i = 0;funcs[i].message!=0;++i)
+        {
+            if (m_mapFunc.insert(std::pair<UINT, MSGFUNC>(funcs[i].message, funcs[i].func)).second == false) {
+                TRACE("插入消息回调失败!!!消息:%d--函数%d--序号%d",funcs[i].message,funcs[i].func,i);
+            }
+        }
     }
     CClientSocket() :
         m_nIP(INADDR_ANY),
-        m_nPort(0) ,
-        m_sock(INVALID_SOCKET)
+        m_nPort(0),
+        m_sock(INVALID_SOCKET),
+        m_bAutoCLose(true),
+        m_hThread(INVALID_HANDLE_VALUE)
     {
         if (InitSockEnv() == FALSE) {
             MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
             exit(0);
         }
         m_buffer.resize(BUFFER_SIZE);
+        memset(m_buffer.data(), 0, BUFFER_SIZE);
     }
     ~CClientSocket() {
         closesocket(m_sock);
         m_sock = INVALID_SOCKET;
         WSACleanup();
     }
+    // 发包新开的线程的函数
     static void threadEntry(void* arg);
     void threadFunc();
+    void threadFunc2();
+    // 加载windows网络功能相关库
     BOOL InitSockEnv()
     {
         WSADATA data;
@@ -311,6 +299,12 @@ private:
         }
         return TRUE;
     }
+    bool Send(const char* pData, int nSize) {
+        return send(m_sock, pData, nSize, 0) > 0;
+    }
+    bool Send(const CPacket& packet);
+    void SendPack(UINT nMsg, WPARAM wParam/*缓冲区的值*/, LPARAM lParam/*缓冲区长度*/);
+    // 单例相关
     static void releaseInstance() {
         if (m_instance != NULL) {
             CClientSocket* tmp = m_instance;
@@ -321,10 +315,6 @@ private:
     }
     static CClientSocket* m_instance;
 
-    bool Send(const char* pData, int nSize) {
-        return send(m_sock, pData, nSize, 0) > 0;
-    }
-    bool Send(const CPacket& packet);
 
     class CHelper {
     public:

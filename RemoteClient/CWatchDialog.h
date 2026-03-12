@@ -26,6 +26,10 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
 	DECLARE_MESSAGE_MAP()
 public:
+	CImage m_image;
+    CImage& GetImage() {
+        return m_image;
+    }
 
     bool isFull() const {
         return m_isFull;

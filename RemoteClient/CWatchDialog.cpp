@@ -51,11 +51,12 @@ END_MESSAGE_MAP()
 CPoint CWatchDialog::UserPoint2RemoteScreenPoint(CPoint& point, bool isScreen)
 {// 客户端区域:800* 450
 	CRect clientRect;
-    if (isScreen) ScreenToClient(&point);//全局屏幕坐标到客户区域坐标
+    if (!isScreen) ClientToScreen(&point);      // 转换为相对本地屏幕左上角坐标
+    m_picture.ScreenToClient(&point);           // 转换为(相对picture控件左上角的)客户区域坐标
     TRACE("x = %d y = %d\r\n", point.x, point.y);
     m_picture.GetWindowRect(clientRect);
     TRACE("x = %d y = %d\r\n", clientRect.Width(), clientRect.Height());
-	return CPoint(point.x * m_nObjWidth / clientRect.Width(), (point.y * m_nObjHeight / clientRect.Height() - 61));// 61是因为锁机解锁按钮需要空间
+	return CPoint(point.x * m_nObjWidth / clientRect.Width(), (point.y * m_nObjHeight / clientRect.Height()));// 61是因为锁机解锁按钮需要空间
 }
 
 BOOL CWatchDialog::OnInitDialog()
@@ -74,20 +75,15 @@ void CWatchDialog::OnTimer(UINT_PTR nIDEvent)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (nIDEvent == 0) {
         CClientController* pParent = CClientController::getInstance();
-		if (m_isFull) {
+        if (m_isFull) {
+            TRACE("图片更新完成%d==%d  %08X\r\n",m_nObjWidth, m_nObjHeight,(HBITMAP)m_image);
 			CRect rect;
 			m_picture.GetWindowRect(rect);
-            CImage image;
-            pParent->GetImage(image);
-            if (m_nObjWidth == -1 || m_nObjWidth == 0) {
-                m_nObjWidth = image.GetWidth();
-            }
-            if (m_nObjHeight == -1 || m_nObjHeight == 0) {
-                m_nObjHeight = image.GetHeight();
-            }
-            image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+            m_nObjWidth = m_image.GetWidth();
+            m_nObjHeight = m_image.GetHeight();
+            m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
 			m_picture.InvalidateRect(NULL);
-            image.Destroy();
+            m_image.Destroy();
             m_isFull = false;
 		}
 	}
@@ -105,7 +101,7 @@ void CWatchDialog::OnLButtonDblClk(UINT nFlags, CPoint point)
 	    event.nButton = 0;// 左键
 
         event.nAction = 1;// 双击
-        CClientController::getInstance()->SendCommandPacket(6, true, (BYTE*)&event, sizeof(event));
+        CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
     }
 	CDialog::OnLButtonDblClk(nFlags, point);
 }
@@ -121,7 +117,7 @@ void CWatchDialog::OnLButtonDown(UINT nFlags, CPoint point)
         event.ptXY = remote;
         event.nButton = 0;// 左键
         event.nAction = 2;// 按下
-        CClientController::getInstance()->SendCommandPacket(6, true, (BYTE*)&event, sizeof(event));
+        CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
     }
 	CDialog::OnLButtonDown(nFlags, point);
 }
@@ -136,7 +132,7 @@ void CWatchDialog::OnLButtonUp(UINT nFlags, CPoint point)
         event.ptXY = remote;
         event.nButton = 0;// 左键
         event.nAction = 3;// 弹起
-        CClientController::getInstance()->SendCommandPacket(6, true, (BYTE*)&event, sizeof(event));
+        CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
     }
 	CDialog::OnLButtonUp(nFlags, point);
 }
@@ -151,7 +147,7 @@ void CWatchDialog::OnRButtonDblClk(UINT nFlags, CPoint point)
         event.ptXY = remote;
         event.nButton = 1;// 右键
         event.nAction = 1;// 双击
-        CClientController::getInstance()->SendCommandPacket(6, true, (BYTE*)&event, sizeof(event));
+        CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
     }
 	CDialog::OnRButtonDblClk(nFlags, point);
 }
@@ -166,7 +162,7 @@ void CWatchDialog::OnRButtonDown(UINT nFlags, CPoint point)
         event.ptXY = remote;
         event.nButton = 1;// 右键
         event.nAction = 2;// 按下
-        CClientController::getInstance()->SendCommandPacket(6, true, (BYTE*)&event, sizeof(event));
+        CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
     }
 	CDialog::OnRButtonDown(nFlags, point);
 }
@@ -181,7 +177,7 @@ void CWatchDialog::OnRButtonUp(UINT nFlags, CPoint point)
         event.ptXY = remote;
         event.nButton = 1;// 右键
         event.nAction = 3;// 弹起
-        CClientController::getInstance()->SendCommandPacket(6, true, (BYTE*)&event, sizeof(event));
+        CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
     }
 	CDialog::OnRButtonUp(nFlags, point);
 }
@@ -198,7 +194,7 @@ void CWatchDialog::OnStnClickedWacth()
         event.ptXY = remote;
         event.nButton = 0;// 左键
         event.nAction = 0;// 单击
-        CClientController::getInstance()->SendCommandPacket(6, true, (BYTE*)&event, sizeof(event));
+        CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
     }
 }
 
@@ -212,7 +208,7 @@ void CWatchDialog::OnMouseMove(UINT nFlags, CPoint point)
         event.ptXY = remote;
         event.nButton = 4;// 没有按键
         event.nAction = 4;// 移动
-        CClientController::getInstance()->SendCommandPacket(6, true, (BYTE*)&event, sizeof(event));
+        CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
     }
     CDialog::OnMouseMove(nFlags, point);
 }
