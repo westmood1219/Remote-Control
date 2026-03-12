@@ -87,7 +87,8 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_START_WATCH, &CRemoteClientDlg::OnBnClickedBtnStartWatch)
     ON_WM_TIMER()
     ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERV, &CRemoteClientDlg::OnIpnFieldchangedIpaddressServ)
-	ON_EN_CHANGE(IDC_EDIT_PORT, &CRemoteClientDlg::OnEnChangeEditPort)
+    ON_EN_CHANGE(IDC_EDIT_PORT, &CRemoteClientDlg::OnEnChangeEditPort)
+    ON_MESSAGE(WM_SEND_PACK_ACK, &CRemoteClientDlg::OnSendPacketAck)
 END_MESSAGE_MAP()
 
 
@@ -193,26 +194,102 @@ void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 {
 	std::list<CPacket> lstPackets;
 	int ret = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1,true,NULL,0 );
-	if (ret == -1 || (lstPackets.size()<0)) {
+	if (ret == 0) {
 		AfxMessageBox(_T("命令处理失败!!!"));
 		return;
 	}
-	CPacket& head = lstPackets.front();
-    CClientSocket* pClient = CClientSocket::getInstance();
-	std::string drivers = head .strData;
-	std::string dr;
-	m_Tree.DeleteAllItems();
-	for (size_t i = 0;i<drivers.size();i++)
-	{
-		if (drivers[i] == ',') {
-			dr += ":";
-			HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
-			m_Tree.InsertItem(_T(""), hTemp, TVI_LAST);
-            dr.clear();
-			continue;
+}
+
+
+LRESULT CRemoteClientDlg::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
+{
+
+	if (lParam == -1 || lParam == -2) {
+        //todo::errer handle
+    }
+    else if(lParam == 1){
+        // 对方关闭了套接字
+    }
+    else{
+        CPacket* pPacket = (CPacket*)wParam;
+        if (pPacket != NULL) {
+			CPacket& head = *pPacket;
+			switch (pPacket->sCmd)
+			{
+			case 1: {// 获取驱动信息
+				std::string drivers = head.strData;
+				std::string dr;
+				m_Tree.DeleteAllItems();
+				for (size_t i = 0; i < drivers.size(); i++)
+				{
+					if (drivers[i] == ',') {
+						dr += ":";
+						HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+						m_Tree.InsertItem(_T(""), hTemp, TVI_LAST);
+						dr.clear();
+						continue;
+					}
+					dr += drivers[i];
+				}
+
+			}
+				  break;
+			case 2:// 获取文件信息
+			{
+                PFILEINFO pInfo = (PFILEINFO)head.strData.c_str();
+                if (pInfo->HasNext == FALSE) break;
+                if (pInfo->IsDiretory) {
+                    if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
+						break;
+                    }
+                    HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);
+                    m_Tree.InsertItem(_T(""), hTemp, TVI_LAST);
+                }
+                else {
+                    m_List.InsertItem(0, pInfo->szFileName);
+                }
+			}
+				break;
+            case 3:
+                TRACE("运行文件完成!");
+				break;
+            case 4:
+			{
+				static LONGLONG length = 0, index = 0;
+				if (length == 0) {
+					length = *(LONGLONG*)head.strData.c_str();// 尝试从当前数据包头 解析出文件总长度
+                    if (length == 0) {
+                        AfxMessageBox(_T("文件长度为0/无法读取该文件"));
+						CClientController::getInstance()->DownloadEnd();
+                        break;
+                    }
+				}
+				else if (length > 0 && (index >= length)) {// 读过了
+					fclose((FILE*)lParam);
+					length = 0;
+                    index = 0;
+                    CClientController::getInstance()->DownloadEnd();// 状态框处理
+				}
+				else {
+					FILE* pFile = (FILE*)lParam;
+					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);//1表示每次写入1字节,size表示写入多少次
+					index += head.strData.size();// 把index拨到length
+				}
+			}
+			break;
+            case 9:
+                TRACE("删除文件完成!");
+				break;
+            case 1981:
+                TRACE("测试成功!");
+				break;
+            default:
+				TRACE("未知数句接收!");
+                break;
+            }
         }
-        dr += drivers[i];
-	}
+    }
+    return 0;
 }
 
 // 刷新文件
@@ -240,6 +317,7 @@ void CRemoteClientDlg::LoadFileCurrent()
     //pClient->CloseSocket();
 }
 
+// 加载文件
 void CRemoteClientDlg::LoadFileInfo()
 {
 	CPoint ptMouse;
@@ -253,7 +331,7 @@ void CRemoteClientDlg::LoadFileInfo()
 	m_List.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);
     std::list<CPacket> lstPackets;
-    int cmd = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength() );
+    int cmd = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCSTR)strPath, strPath.GetLength(), (WPARAM)hTreeSelected);
 	if (lstPackets.size() > 0) {
 		std::list<CPacket>::iterator it = lstPackets.begin();
 		for (; it != lstPackets.end(); ++it) {
@@ -359,7 +437,7 @@ void CRemoteClientDlg::OnDeleteFile()
 	LoadFileCurrent();
 }
 
-// 打开文件
+// 打开/运行 文件
 void CRemoteClientDlg::OnRunFile()
 {
 	HTREEITEM hSelected = m_Tree.GetSelectedItem();

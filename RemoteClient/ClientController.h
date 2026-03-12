@@ -48,7 +48,9 @@ public:
         int nCmd,
         bool bAutoClose = true,
         BYTE* pData = NULL,
-        size_t nLength = 0);
+        size_t nLength = 0,
+        WPARAM wParam = 0
+    );
 
     // 获得监控画面
     int GetImage(CImage& image) {
@@ -57,6 +59,7 @@ public:
 
     // 下载文件
     int DownFile(CString strPath);
+    void DownloadEnd();
 
     void StartWatchScreen();
 
@@ -64,8 +67,8 @@ protected:
     static void threadEntryForWatchData(void* arg);
     void threadWatchScreen();
 
-    void threadDownloadFile();
-    static void threadDownloadEntry(void* arg);
+    //void threadDownloadFile();
+    //static void threadDownloadEntry(void* arg);
     
     CClientController() :
         m_statusDlg(&m_remoteDlg),

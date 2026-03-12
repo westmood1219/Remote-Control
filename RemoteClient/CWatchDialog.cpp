@@ -32,17 +32,18 @@ void CWatchDialog::DoDataExchange(CDataExchange* pDX)
 
 
 BEGIN_MESSAGE_MAP(CWatchDialog, CDialog)
-	ON_WM_TIMER()
-	ON_WM_LBUTTONDBLCLK()
-	ON_WM_LBUTTONDOWN()
-	ON_WM_LBUTTONUP() 
-	ON_WM_RBUTTONDBLCLK()
-	ON_WM_RBUTTONDOWN()
-	ON_WM_RBUTTONUP()
+    ON_WM_TIMER()
+    ON_WM_LBUTTONDBLCLK()
+    ON_WM_LBUTTONDOWN()
+    ON_WM_LBUTTONUP()
+    ON_WM_RBUTTONDBLCLK()
+    ON_WM_RBUTTONDOWN()
+    ON_WM_RBUTTONUP()
     ON_STN_CLICKED(IDC_WACTH, &CWatchDialog::OnStnClickedWacth)
     ON_WM_MOUSEMOVE()
     ON_BN_CLICKED(IDC_BTN_LOCK, &CWatchDialog::OnBnClickedBtnLock)
     ON_BN_CLICKED(IDC_BTN_UNLOCK, &CWatchDialog::OnBnClickedBtnUnlock)
+    ON_MESSAGE(WM_SEND_PACK_ACK, &CWatchDialog::OnSendPacketAck)
 END_MESSAGE_MAP()
 
 
@@ -65,7 +66,7 @@ BOOL CWatchDialog::OnInitDialog()
 
 	// TODO:  在此添加额外的初始化
     m_isFull = false;
-	SetTimer(0, 45, NULL);
+	//SetTimer(0, 45, NULL);
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -88,6 +89,47 @@ void CWatchDialog::OnTimer(UINT_PTR nIDEvent)
 		}
 	}
 	CDialog::OnTimer(nIDEvent);
+}
+
+LRESULT CWatchDialog::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
+{
+    // 先错误处理
+    if (lParam == -1 || lParam  == -2) {
+        //todo::errer handle
+    }
+    else if (lParam == 1) {
+        // 对方关闭了套接字
+    }
+    // 再处理正常情况
+    else if (lParam == 0 || lParam > 0) {
+        CPacket* pPacket = (CPacket*)wParam;
+        if (pPacket != NULL) {
+            switch (pPacket->sCmd)
+            {
+            case 6:
+            {
+                if (m_isFull) {
+                    CMyTool::Bytes2Image(m_image, pPacket->strData);
+                    CRect rect;
+                    m_picture.GetWindowRect(rect);
+                    m_nObjWidth = m_image.GetWidth();
+                    m_nObjHeight = m_image.GetHeight();
+                    m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+                    m_picture.InvalidateRect(NULL);
+                    m_image.Destroy();
+                    m_isFull = false;
+                }
+                break;
+            }
+            case 5:
+            case 7:
+            case 8:
+            default:
+                break;
+            }
+        }
+    }
+    return LRESULT();
 }
 
 void CWatchDialog::OnLButtonDblClk(UINT nFlags, CPoint point)

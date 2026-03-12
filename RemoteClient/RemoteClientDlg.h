@@ -6,6 +6,11 @@
 #include "ClientSocket.h"
 #include "StatusDlg.h"
 
+#ifndef WM_SEND_PACK_ACK
+#define WM_SEND_PACK_ACK (WM_USER+2)
+#endif
+
+
 // CRemoteClientDlg 对话框
 class CRemoteClientDlg : public CDialogEx
 {
@@ -42,6 +47,7 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
+    afx_msg LRESULT OnSendPacketAck(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnBnClickedBtnTest();
 	DWORD m_server_address;
 	CString m_nPort;

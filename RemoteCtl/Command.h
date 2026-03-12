@@ -169,19 +169,19 @@ protected:
         }
         if (pFile != NULL) {
             fseek(pFile, 0, SEEK_END);
-            data = _ftelli64(pFile);
-            lstPacket.push_back(CPacket(4, (BYTE*)&data, 8));
-            fseek(pFile, 0, SEEK_SET);
+            data = _ftelli64(pFile);// 当前文件位置,即文件总大小(字节)
+            lstPacket.push_back(CPacket(4, (BYTE*)&data, 8));// 先发送文件总大小
+            fseek(pFile, 0, SEEK_SET);// 重置文件指针到开头
             char buffer[1024] = "";
             size_t rlen = 0;
             do
             {
                 rlen = fread(buffer, 1, 1024, pFile);
-                lstPacket.push_back(CPacket(4, (BYTE*)buffer, rlen));
+                lstPacket.push_back(CPacket(4, (BYTE*)buffer, rlen));// 每次最多发送1KB
             } while (rlen >= 1024);
             fclose(pFile);
         }
-        lstPacket.push_back(CPacket(4, NULL, 0));
+        lstPacket.push_back(CPacket(4, NULL, 0));// 发完了
         return 0;
     }
 
