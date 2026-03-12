@@ -33,6 +33,32 @@ typedef struct MouseEvent
     POINT ptXY;// 坐标
 }MOUSEEV, * PMOUSEEV;
 
+
+enum {
+    CSM_AUTOCLOSE = 1,//Client Socket Mode
+};
+
+typedef struct PacketData{
+    std::string strData;
+    UINT nMode;
+    PacketData(const char* pData,size_t nLen,UINT mode) {
+        strData.resize(nLen);
+        memcpy((char*)strData.c_str(), pData, nLen);
+        nMode = mode;
+    }
+    PacketData(const PacketData& data) {
+        strData = data.strData;
+        nMode = data.nMode;
+    }
+    PacketData& operator=(const PacketData& data) {
+        if (this != &data) {
+            strData = data.strData;
+            nMode = data.nMode;
+        }
+        return *this;
+    }
+}PACKET_DATA;
+
 #pragma pack(push)
 #pragma pack(1)
 #pragma warning(disable: 4267)// 暂时禁用 size_t 转 DWORD 的警告
@@ -50,7 +76,6 @@ public:
         sCmd = packet.sCmd;
         strData = packet.strData;
         sSum = packet.sSum;
-        hEvent = packet.hEvent;
     }
     // 赋值运算符重载
     CPacket& operator=(const CPacket& packet) {
@@ -60,12 +85,11 @@ public:
             sCmd = packet.sCmd;
             strData = packet.strData;
             sSum = packet.sSum;
-            hEvent = packet.hEvent;
         }
         return *this;
     }
     // 打包
-    CPacket(WORD nCmd, const BYTE* pData, size_t nSize, HANDLE hEvent) {
+    CPacket(WORD nCmd, const BYTE* pData, size_t nSize ) {
         sHead = 0xFEFF;
         nLength = nSize + 4;
         sCmd = nCmd;
@@ -81,10 +105,9 @@ public:
         {
             sSum += BYTE(strData[j]) & 0xFF;
         }
-        this->hEvent = hEvent;
     }
     // 包解析
-    CPacket(const BYTE* pData, size_t& nSize): hEvent(INVALID_HANDLE_VALUE){//nSize是寻找包头的范围
+    CPacket(const BYTE* pData, size_t& nSize) {//nSize是寻找包头的范围
         size_t i = 0;
         for (i = 0; i < nSize; i++) {
             if (*(WORD*)(pData + i) == 0xFEFF) {
@@ -144,7 +167,6 @@ public:
     std::string strData;//包数据
     WORD sSum;//和校验
     //std::string strOut;//整个包的数据
-    HANDLE hEvent;
 };
 #pragma pack(pop)
 
@@ -157,6 +179,7 @@ std::string GetErrInfo(int wasErrCode);
 
 #define BUFFER_SIZE 4096000
 #define WM_SEND_PACK (WM_USER+1)// 发送包数据
+#define WM_SEND_PACK_ACK (WM_USER+2)// 发送包数据 应答
 
 class CClientSocket
 {
@@ -169,7 +192,6 @@ public:
     }
 
     bool InitSocket();
-
 
     int DealCommand() {
         if (m_sock == -1) return -1;
@@ -193,7 +215,7 @@ public:
         return -1;
     }
 
-    bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, bool isAutoClosed = true);
+    bool SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed = true);
 
     bool GetFilePath(std::string& strPath) {
         if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4)) {
@@ -230,6 +252,7 @@ public:
     }
 
 private:
+    UINT m_nThreadID;
     typedef void(CClientSocket::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
     std::map<UINT, MSGFUNC> m_mapFunc;
     HANDLE m_hThread;
@@ -245,49 +268,15 @@ private:
     std::vector<char> m_buffer; // recv 包的缓存区
     CClientSocket& operator=(const CClientSocket& ss) {}
     // 构造析构
-    CClientSocket(const CClientSocket& ss)
-    {
-        m_sock = ss.m_sock;
-        m_nIP = ss.m_nIP;
-        m_nPort = ss.m_nPort;
-        m_bAutoCLose = ss.m_bAutoCLose;
-        m_hThread = INVALID_HANDLE_VALUE;
-        struct
-        {
-            UINT message;
-            MSGFUNC func;
-        }funcs[] = {
-            {WM_SEND_PACK,&CClientSocket::SendPack},
-            {0,NULL}
-        };
-        for (int i = 0;funcs[i].message!=0;++i)
-        {
-            if (m_mapFunc.insert(std::pair<UINT, MSGFUNC>(funcs[i].message, funcs[i].func)).second == false) {
-                TRACE("插入消息回调失败!!!消息:%d--函数%d--序号%d",funcs[i].message,funcs[i].func,i);
-            }
-        }
-    }
-    CClientSocket() :
-        m_nIP(INADDR_ANY),
-        m_nPort(0),
-        m_sock(INVALID_SOCKET),
-        m_bAutoCLose(true),
-        m_hThread(INVALID_HANDLE_VALUE)
-    {
-        if (InitSockEnv() == FALSE) {
-            MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
-            exit(0);
-        }
-        m_buffer.resize(BUFFER_SIZE);
-        memset(m_buffer.data(), 0, BUFFER_SIZE);
-    }
+    CClientSocket(const CClientSocket& ss);
+    CClientSocket();
     ~CClientSocket() {
         closesocket(m_sock);
         m_sock = INVALID_SOCKET;
         WSACleanup();
     }
     // 发包新开的线程的函数
-    static void threadEntry(void* arg);
+    static unsigned _stdcall threadEntry(void* arg);
     void threadFunc();
     void threadFunc2();
     // 加载windows网络功能相关库

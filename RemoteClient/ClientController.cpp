@@ -82,7 +82,7 @@ void CClientController::threadDownloadFile()
     CClientSocket* pClient = CClientSocket::getInstance();
     do
     {
-        int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+        int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
         if (ret < 0) {
             AfxMessageBox("执行下载命令失败!!");
             TRACE("执行下载命令失败:ret = %d \r\n", ret);
@@ -119,25 +119,12 @@ void CClientController::threadDownloadEntry(void* arg)
     _endthread();
 }
 
-int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength,
-    std::list<CPacket>* plstPacks)
+bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength )
 {
-    HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    // 不应该直接发送   而是投入到队列里面
-    std::list<CPacket> lstPacks;//应答结果包
-    // 包列表指针获取 发包
-    if (plstPacks == NULL) {
-        plstPacks = &lstPacks;
-    }
-    // 调用model层 发送命令给服务端
     CClientSocket* pClient = CClientSocket::getInstance();
-    pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent),*plstPacks, bAutoClose);
-    CloseHandle(hEvent); //回收事件句柄,防止资源耗尽
-    // 发完了返回命令值
-    if (plstPacks->size() > 0) {
-        return plstPacks->front().sCmd;
-    }
-    return -1;
+    // 调用model层 发送命令给服务端
+    return pClient->SendPacket(hWnd,CPacket(nCmd, pData, nLength) , bAutoClose);
+    
 }
 
 int CClientController::DownFile(CString strPath)
@@ -184,7 +171,8 @@ void CClientController::threadWatchScreen()
     while (!m_isClosed) {
         if (m_watchDlg.isFull() == false) {
             std::list<CPacket> lstPacks;
-            int ret = SendCommandPacket(6, true, NULL, 0, &lstPacks);
+            //todo: 控制发送频率 
+            int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(),6, true, NULL, 0 );
             if (ret == 6) {
                 if (CMyTool::Bytes2Image(m_watchDlg.GetImage(), lstPacks.front().strData) == 0) {
                     m_watchDlg.SetImageStatus(true);
@@ -199,31 +187,31 @@ void CClientController::threadWatchScreen()
     }
 }
 
-// 控制层线程处理消息循环
-void CClientController::threadFunc()
-{
-    MSG msg;
-    while (::GetMessage(&msg, NULL, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-        if (msg.message == WM_SEND_MESSAGE) {
-            MSGINFO* pmsg = (MSGINFO*)msg.wParam;
-            HANDLE hEvent = (HANDLE)msg.lParam;
-            std::map<UINT, MSGFUNC>::iterator it = m_mapFunc.find(msg.message);
-            if (it != m_mapFunc.end()) {
-                pmsg->result = (this->*it->second)(pmsg->msg.message, pmsg->msg.wParam, pmsg->msg.lParam);
-            }
-            else
-            {
-                pmsg->result = -1;
-            }
-            SetEvent(hEvent);
-        }
-        else {
-            std::map<UINT, MSGFUNC>::iterator it = m_mapFunc.find(msg.message);
-            if (it != m_mapFunc.end()) {
-                (this->*it->second)(msg.message, msg.wParam, msg.lParam);
-            }
-        }
-    }
-}
+//// 控制层线程处理消息循环
+//void CClientController::threadFunc()
+//{
+//    MSG msg;
+//    while (::GetMessage(&msg, NULL, 0, 0)) {
+//        TranslateMessage(&msg);
+//        DispatchMessage(&msg);
+//        if (msg.message == WM_SEND_MESSAGE) {
+//            MSGINFO* pmsg = (MSGINFO*)msg.wParam;
+//            HANDLE hEvent = (HANDLE)msg.lParam;
+//            std::map<UINT, MSGFUNC>::iterator it = m_mapFunc.find(msg.message);
+//            if (it != m_mapFunc.end()) {
+//                pmsg->result = (this->*it->second)(pmsg->msg.message, pmsg->msg.wParam, pmsg->msg.lParam);
+//            }
+//            else
+//            {
+//                pmsg->result = -1;
+//            }
+//            SetEvent(hEvent);
+//        }
+//        else {
+//            std::map<UINT, MSGFUNC>::iterator it = m_mapFunc.find(msg.message);
+//            if (it != m_mapFunc.end()) {
+//                (this->*it->second)(msg.message, msg.wParam, msg.lParam);
+//            }
+//        }
+//    }
+//}
