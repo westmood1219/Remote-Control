@@ -6,7 +6,7 @@ CClientSocket* CClientSocket::m_instance = NULL;
 CClientSocket::CHelper CClientSocket::m_helper;
 
 CClientSocket* pclient = CClientSocket::getInstance();
-
+// 详细错误信息
 std::string GetErrInfo(int wasErrCode)
 {
     std::string ret;
@@ -58,20 +58,25 @@ bool CClientSocket::InitSocket()
 // 开启处理控制层包命令线程
 bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed, WPARAM wParam)
 {
-    if (m_hThread == INVALID_HANDLE_VALUE) {
-        m_hThread = (HANDLE)_beginthreadex(NULL, 0, &CClientSocket::threadEntry, NULL, 0, &m_nThreadID);
-    }
     UINT nMode = isAutoClosed ? CSM_AUTOCLOSE : 0 ;
     std::string strOut;
     pack.Data(strOut);
-    return PostThreadMessage(m_nThreadID, WM_SEND_PACK_ACK, (WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
+    TRACE("SendPacket=====开启处理控制层包命令线程\r\n");
+    bool ret = PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
+    TRACE("threadid : [%d]\r\n", GetCurrentThreadId());
+    return ret;
 }
 
+// 分发消息给消息处理函数
 void CClientSocket::threadFunc2()
 {
     MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0)) {
+    SetEvent(m_eventInvoke);
+    TRACE("threadid : [%d]\r\n", GetCurrentThreadId());
+    BOOL bRet{};
+    while ((bRet = GetMessage(&msg, NULL, 0, 0))!= 0) {
         TranslateMessage(&msg);
+        TRACE("GET Message :%08X\r\n", msg.message);
         DispatchMessage(&msg);
         if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
             (this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
@@ -79,15 +84,7 @@ void CClientSocket::threadFunc2()
     }
 }
 
-bool CClientSocket::Send(const CPacket& packet) {
-    TRACE("m_sock= %d \r\n", m_sock);
-    if (m_sock == -1) return false;
-    std::string strOut;
-    packet.Data(strOut);
-    return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
-}
-
-// WM_SEND_PACK->func|
+// WM_SEND_PACK的消息函数
 void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {//需要定义消息/回调消息的数据结构(消息需要数据和数据长度,模式)(回调消息需要句柄HWND MESSAGE)
     // 避免局部变量传过来后销毁,所以wParam传过来应该是堆内存,为了避免内存泄漏,所以利用RALL提前delete
@@ -135,7 +132,7 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
     }
 }
 
-// 默认构造
+// 默认构造   建立自定义消息映射
 CClientSocket::CClientSocket() :
     m_nIP(INADDR_ANY),
     m_nPort(0),
@@ -147,6 +144,12 @@ CClientSocket::CClientSocket() :
         MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置"), _T("初始化错误!"), MB_OK | MB_ICONERROR);
         exit(0);
     }
+    m_eventInvoke = CreateEvent(NULL, TRUE, FALSE, NULL);
+    m_hThread = (HANDLE)_beginthreadex(NULL, 0, &CClientSocket::threadEntry, this, 0, &m_nThreadID);
+    if (WaitForSingleObject(m_eventInvoke, 100) == WAIT_TIMEOUT) {
+        TRACE("网络消息处理线程启动失败!");
+    }
+    CloseHandle(m_eventInvoke);
     m_buffer.resize(BUFFER_SIZE);
     memset(m_buffer.data(), 0, BUFFER_SIZE);
     // 建立自定义消息映射
@@ -158,6 +161,9 @@ CClientSocket::CClientSocket() :
         {WM_SEND_PACK,&CClientSocket::SendPack},
         {0,NULL}
     };
+    for (int i = 0; funcs[i].func != NULL; ++i) {
+        m_mapFunc.insert(std::make_pair(funcs[i].message, funcs[i].func));
+    }
 }
 // 拷贝构造
 CClientSocket::CClientSocket(const CClientSocket& ss)
@@ -172,4 +178,14 @@ CClientSocket::CClientSocket(const CClientSocket& ss)
     for (; it != ss.m_mapFunc.end(); ++it) {
         m_mapFunc.insert(std::pair<UINT, MSGFUNC>(it->first, it->second));
     }
+}
+
+
+// 弃用的发包函数
+bool CClientSocket::Send(const CPacket& packet) {
+    TRACE("m_sock= %d \r\n", m_sock);
+    if (m_sock == -1) return false;
+    std::string strOut;
+    packet.Data(strOut);
+    return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
 }

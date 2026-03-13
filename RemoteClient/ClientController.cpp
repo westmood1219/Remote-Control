@@ -11,7 +11,7 @@ CClientController* CClientController::getInstance()
 {
     if (m_instance == nullptr) {
         m_instance = new CClientController();
-        TRACE("CClientController size is %d\r\n", sizeof(*m_instance));
+        //TRACE("CClientController size is %d\r\n", sizeof(*m_instance));
         struct { UINT nMsg; MSGFUNC func; }MsgFuncs[] =
         {
             {WM_SHOW_STATUS, &CClientController::onShowStatus},
@@ -109,12 +109,13 @@ LRESULT CClientController::onShowWatcher(UINT nMsg, WPARAM wParam, LPARAM lParam
 //    _endthread();
 //}
 
+// 调用control层 发送命令给服务端model
 bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, WPARAM wParam)
 {
     CClientSocket* pClient = CClientSocket::getInstance();
-    // 调用model层 发送命令给服务端
-    return pClient->SendPacket(hWnd,CPacket(nCmd, pData, nLength) , bAutoClose, wParam);
     
+    bool ret =  pClient->SendPacket(hWnd,CPacket(nCmd, pData, nLength) , bAutoClose, wParam);
+    return ret;
 }
 
 int CClientController::DownFile(CString strPath)
@@ -195,7 +196,7 @@ void CClientController::threadWatchScreen()
 void CClientController::threadFunc()
 {
     MSG msg;
-    while (::GetMessage(&msg, NULL, 0, 0)) {
+    while (::GetMessageA(&msg, NULL, 0, 0)) {// 进来了但是又
         TranslateMessage(&msg);
         DispatchMessage(&msg);
         if (msg.message == WM_SEND_MESSAGE) {

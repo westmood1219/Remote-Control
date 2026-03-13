@@ -7,11 +7,6 @@
 #include "RemoteClient.h"
 #include "ClientController.h"
 
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
-
-
 // CRemoteClientApp
 
 BEGIN_MESSAGE_MAP(CRemoteClientApp, CWinApp)
@@ -40,9 +35,7 @@ CRemoteClientApp theApp;
 
 BOOL CRemoteClientApp::InitInstance()
 {
-	// 如果应用程序存在以下情况，Windows XP 上需要 InitCommonControlsEx()
-	// 使用 ComCtl32.dll 版本 6 或更高版本来启用可视化方式，
-	//则需要 InitCommonControlsEx()。  否则，将无法创建窗口。
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 	INITCOMMONCONTROLSEX InitCtrls;
 	InitCtrls.dwSize = sizeof(InitCtrls);
 	// 将它设置为包括所有要在应用程序中使用的

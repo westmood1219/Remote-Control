@@ -10,11 +10,6 @@
 #include "CWatchDialog.h"
 #include "ClientController.h"
 
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
-
-
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
 class CAboutDlg : public CDialogEx
@@ -188,7 +183,7 @@ HCURSOR CRemoteClientDlg::OnQueryDragIcon()
 void CRemoteClientDlg::OnBnClickedBtnTest()
 {
 	int cmd = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1981);
-	TRACE("TEST CMD ==== %d\r\n", cmd);
+	TRACE("TEST result =%d send success\r\n", cmd);
 }
 void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 {
@@ -205,16 +200,16 @@ LRESULT CRemoteClientDlg::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 {
 
 	if (lParam == -1 || lParam == -2) {
-        //todo::errer handle
+		TRACE("errer handle\r\n");
     }
     else if(lParam == 1){
-        // 对方关闭了套接字
+		TRACE("对方关闭了套接字\r\n");
     }
     else{
-        CPacket* pPacket = (CPacket*)wParam;
-        if (pPacket != NULL) {
-			CPacket& head = *pPacket;
-			switch (pPacket->sCmd)
+        if (wParam != NULL) {
+			CPacket head = *(CPacket*)wParam;
+			delete (CPacket*)wParam;
+			switch (head.sCmd)
 			{
 			case 1: {// 获取驱动信息
 				std::string drivers = head.strData;
@@ -251,7 +246,7 @@ LRESULT CRemoteClientDlg::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 			}
 				break;
             case 3:
-                TRACE("运行文件完成!");
+                TRACE("运行文件完成!\r\n");
 				break;
             case 4:
 			{
@@ -278,13 +273,13 @@ LRESULT CRemoteClientDlg::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 			}
 			break;
             case 9:
-                TRACE("删除文件完成!");
+                TRACE("删除文件完成!\r\n");
 				break;
             case 1981:
-                TRACE("测试成功!");
+                TRACE("测试成功!\r\n");
 				break;
             default:
-				TRACE("未知数句接收!");
+				TRACE("未知数句接收!\r\n");
                 break;
             }
         }

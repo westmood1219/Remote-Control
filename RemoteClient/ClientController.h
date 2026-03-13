@@ -92,7 +92,7 @@ protected:
         if (m_instance != NULL) {
             delete m_instance;
             m_instance = NULL;
-            TRACE("CClientController has released\r\n" );
+            TRACE("CClientController(m_instance) has released\r\n" );
         }
     }
 
