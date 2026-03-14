@@ -18,6 +18,8 @@ class CRemoteClientDlg : public CDialogEx
 public:
 	CRemoteClientDlg(CWnd* pParent = nullptr);	// 标准构造函数
 
+	void LoadFileCurrent();// 刷新文件树(after delete/download)
+	void LoadFileInfo();
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_REMOTECLIENT_DIALOG };
@@ -26,10 +28,13 @@ public:
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 private:
+	void DealCommand(WORD nCmd, const std::string& strData, LPARAM lParam);
+	void InitUIData();
+	void Str2Tree(const std::string& drivers, CTreeCtrl& tree);
+	void UpdateFileInfo(const FILEINFO& finfo, HTREEITEM hParent);
+	void UpdateDownloadFile(const std::string& strData,  FILE* pFile);
 	CImage m_image;		// 画面缓存
 	bool m_isClosed;	// 监视是否关闭
-	void LoadFileCurrent();
-	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
 	

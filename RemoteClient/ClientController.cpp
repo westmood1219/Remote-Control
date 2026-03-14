@@ -40,17 +40,6 @@ int CClientController::Invoke(CWnd*& pMainWnd)
     return m_remoteDlg.DoModal();
 }
 
-LRESULT CClientController::SendMessage(MSG msg)
-{
-    HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (hEvent == NULL)return -2;
-    MsgInfo info(msg);
-    PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM)&info, (LPARAM)hEvent);
-    WaitForSingleObject(hEvent, -1);
-    CloseHandle(hEvent);
-    return info.result;
-}
-
 // 控制层线程函数入口
 unsigned __stdcall CClientController::threadEntry(void* arg)
 {
@@ -69,45 +58,6 @@ LRESULT CClientController::onShowWatcher(UINT nMsg, WPARAM wParam, LPARAM lParam
 {
     return m_watchDlg.DoModal();
 }
-
-//void CClientController::threadDownloadFile()
-//{
-//    CClientSocket* pClient = CClientSocket::getInstance();
-//    do
-//    {
-//        //int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(),(WPARAM)pFile);
-//        if (ret < 0) {
-//            AfxMessageBox("执行下载命令失败!!");
-//            TRACE("执行下载命令失败:ret = %d \r\n", ret);
-//            break;
-//        }
-//        long long nLength = *(long long*)CClientSocket::getInstance()->GetPacket().strData.c_str();
-//        
-//        long long nCount = 0;
-//        while (nCount < nLength) {
-//            ret = CClientController::getInstance()->DealCommand();
-//            if (ret < 0) {
-//                AfxMessageBox("传输失败!!");
-//                TRACE("传输失败:ret = %d \r\n", ret);
-//                break;
-//            }
-//            fwrite(pClient->GetPacket().strData.c_str(), 1, pClient->GetPacket().strData.size(), pFile);
-//            nCount += pClient->GetPacket().strData.size();
-//        }
-//    } while (false);
-//    fclose(pFile);
-//    pClient->CloseSocket();
-//    m_statusDlg.ShowWindow(SW_HIDE);
-//    m_remoteDlg.EndWaitCursor();
-//    m_remoteDlg.MessageBox(_T("操作成功!"), _T("finished"));
-//}
-
-//void CClientController::threadDownloadEntry(void* arg)
-//{
-//    CClientController* thiz = (CClientController*)arg;
-//    thiz->threadDownloadFile();
-//    _endthread();
-//}
 
 // 调用control层 发送命令给服务端model
 bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, WPARAM wParam)
@@ -143,6 +93,7 @@ int CClientController::DownFile(CString strPath)
         m_statusDlg.ShowWindow(SW_SHOW);
         m_statusDlg.CenterWindow(&m_remoteDlg);
         m_statusDlg.SetActiveWindow();
+        m_remoteDlg.LoadFileInfo();
     }
     return 0;
 }
@@ -173,19 +124,18 @@ void CClientController::threadEntryForWatchData(void* arg)
 void CClientController::threadWatchScreen()
 {
     Sleep(50);
+    ULONGLONG nTick = GetTickCount64();
     while (!m_isClosed) {
         if (m_watchDlg.isFull() == false) {
-            std::list<CPacket> lstPacks;
+            if (GetTickCount64() - nTick < 200) {
+                Sleep(200 - DWORD(GetTickCount64() - nTick));
+            }
+            nTick = GetTickCount64();
+            //std::list<CPacket> lstPacks;
             //todo: 控制发送频率 
             int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(),6, true, NULL, 0 );
-            if (ret == 6) {
-                if (CMyTool::Bytes2Image(m_watchDlg.GetImage(), lstPacks.front().strData) == 0) {
-                    m_watchDlg.SetImageStatus(true);
-                    TRACE("成功获取图片\r\n");
-                }
-                else {
-                    TRACE("获取图片失败:ret = %d\r\n", ret);
-                }
+            if (!ret){
+                TRACE("获取图片失败:ret = %d\r\n", ret);
             }
         }
         Sleep(1);

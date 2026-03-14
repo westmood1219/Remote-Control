@@ -61,27 +61,14 @@ bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed
     UINT nMode = isAutoClosed ? CSM_AUTOCLOSE : 0 ;
     std::string strOut;
     pack.Data(strOut);
-    TRACE("SendPacket=====开启处理控制层包命令线程\r\n");
-    bool ret = PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
-    TRACE("threadid : [%d]\r\n", GetCurrentThreadId());
-    return ret;
-}
-
-// 分发消息给消息处理函数
-void CClientSocket::threadFunc2()
-{
-    MSG msg;
-    SetEvent(m_eventInvoke);
-    TRACE("threadid : [%d]\r\n", GetCurrentThreadId());
-    BOOL bRet{};
-    while ((bRet = GetMessage(&msg, NULL, 0, 0))!= 0) {
-        TranslateMessage(&msg);
-        TRACE("GET Message :%08X\r\n", msg.message);
-        DispatchMessage(&msg);
-        if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
-            (this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
-        }
+    PACKET_DATA* pData = new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam);
+    //TRACE("SendPacket开启处理控制层包命令线程\r\n");
+    bool ret = PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)pData, (LPARAM)hWnd);
+    //TRACE("threadid : [%d]\r\n", GetCurrentThreadId());
+    if (ret == false) {
+        delete pData;
     }
+    return ret;
 }
 
 // WM_SEND_PACK的消息函数
@@ -91,6 +78,8 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
     PACKET_DATA data = *(PACKET_DATA*)wParam;
     delete(PACKET_DATA*)wParam;
     HWND hWnd = (HWND)lParam;
+    size_t nTemp = data.strData.size();
+    CPacket current((BYTE*)data.strData.c_str(), nTemp);
     if (InitSocket() == true) {
         int ret = send(m_sock, (char*)data.strData.c_str(), (int)data.strData.size(), 0);
         if (ret > 0) {
@@ -104,19 +93,23 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
                     index += (size_t)length;// 更新buffer索引
                     size_t nLen = index;    // 避免更改索引
                     CPacket pack((BYTE*)pBuffer, nLen);// parse packet
-                    if (nLen > 0) {// 如果解析到了, 给到View层处理渲染
+                    TRACE("解析命令:%d to hWnd %08X %d %d %d\r\n", pack.sCmd, hWnd, index, nLen, length);
+                    TRACE("包头: %04X \r\n", *(WORD*)(pBuffer+nLen));
+                    if (nLen > 0) {// 如果解析到了返回的包, 给到View层处理渲染
                         SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), (LPARAM)data.wParam);// 同时lparam也用来给remotedLg要处理的文件树句柄
                         if (data.nMode & CSM_AUTOCLOSE) {
                             CloseSocket();
                             return;
                         }
+                        index -= nLen;
+                        memmove(pBuffer, pBuffer + nLen, index);//更新缓冲区,覆盖使用了的内存
                     }
-                    index -= nLen;
-                    memmove(pBuffer, pBuffer + nLen, index);
                 }
                 else {// 对方关闭了套接字或网络设备异常
+                    TRACE("对方关闭了套接字or: length:%d index:%d cmd:%d\r\n",length,index,current.sCmd);
                     CloseSocket();
-                    SendMessage(hWnd, WM_SEND_PACK_ACK, NULL, 1);// lparam 作为返回值用来检查服务端回复情况
+                    SendMessageA(hWnd, WM_SEND_PACK_ACK, NULL, 1);// lparam 作为返回值用来检查服务端回复情况
+                    //SendMessageA(hWnd, WM_SEND_PACK_ACK, (WPARAM) new CPacket(current.sCmd,NULL,0), 1);
                 }
             }
         }
@@ -129,6 +122,23 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
     else//错误处理
     {
         SendMessage(hWnd, WM_SEND_PACK_ACK, NULL, -2);
+    }
+}
+
+// 分发消息给消息处理函数
+void CClientSocket::threadFunc2()
+{
+    MSG msg;
+    SetEvent(m_eventInvoke);
+    TRACE("threadid : [%d]\r\n", GetCurrentThreadId());
+    BOOL bRet{};
+    while ((bRet = GetMessage(&msg, NULL, 0, 0))!= 0) {
+        TranslateMessage(&msg);
+        //TRACE("GET Message :%08X\r\n", msg.message);
+        DispatchMessage(&msg);
+        if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
+            (this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
+        }
     }
 }
 
