@@ -20,8 +20,18 @@ CWinApp theApp;
 
 using namespace std;
 
+/*
+    1 开机启动时,程序权限是跟随用户的,如果两者权限不一样,程序启动失败
+    2 开机启动对环境变量有影响,如果依赖dll,则需要软链接或者直接静态库编译
+*/
 void ChooseAutoInvoke()
 {
+    /*TCHAR wcsSystem[MAX_PATH] = _T("");
+    GetSystemDirectory(wcsSystem, MAX_PATH);*/
+    CString strPath = CString(_T("C:\\Windows\\SysWOW64\\RemoteCtrl.exe"));
+    if (PathFileExists(strPath)) {
+        return;
+    }
     CString strSubKey = _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
     CString strInfo = _T("该程序只允许用于合法用途!!\n");
     strInfo += _T("继续运行该程序,将使得这台机器处于被监控状态!\n");
@@ -32,7 +42,7 @@ void ChooseAutoInvoke()
     if (ret == IDYES) {
         char sPath[MAX_PATH] = "";
         char sSys[MAX_PATH] = "";
-        std::string strExe = "\\RemoteCtrl.exe ";
+        std::string strExe = "\\RemoteCtl.exe ";// 我这里是Ctl不是Ctrl!
         GetCurrentDirectoryA(MAX_PATH, sPath);
         GetSystemDirectoryA(sSys, sizeof(sSys));
         std::string strCmd = "mklink " + std::string(sSys) + strExe + std::string(sPath) + strExe;
@@ -45,7 +55,6 @@ void ChooseAutoInvoke()
             MessageBox(NULL, _T("设置自动开机启动失败! 是否权限不足?\r\n程序启动失败! "), _T("error"), MB_ICONERROR | MB_TOPMOST);
             exit(0);
         }
-        CString strPath = CString(_T("%SystemRoot%\\SysWOW64\\RemoteCtrl.exe"));
         ret = RegSetValueEx(hKey, _T("RemoteCtrl"), 0, REG_EXPAND_SZ, (BYTE*)(LPCTSTR)strPath, strPath.GetLength()*sizeof(TCHAR));
         RegCloseKey(hKey);
         if (ret != ERROR_SUCCESS) {
@@ -54,7 +63,7 @@ void ChooseAutoInvoke()
         }
     }else if (ret == IDCANCEL)
     {
-
+        exit(0);
     }
 
 }
