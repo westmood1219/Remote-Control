@@ -140,6 +140,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CEdoyunQueue.h" />
     <ClInclude Include="Command.h" />
     <ClInclude Include="Packet.h" />
     <ClInclude Include="framework.h" />
@@ -152,6 +153,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CEdoyunQueue.cpp" />
     <ClCompile Include="Command.cpp" />
     <ClCompile Include="LockInfoDialog.cpp" />
     <ClCompile Include="MyTool.cpp" />
