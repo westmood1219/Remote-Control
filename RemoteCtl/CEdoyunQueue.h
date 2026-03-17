@@ -35,19 +35,21 @@ public:
         m_lock = false;
         m_hCompeletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);    //epoll只允许单线程,完全端口映射允许多线程
         m_hThread = INVALID_HANDLE_VALUE;
-        if (m_hCompeletionPort == NULL) {
+        if (m_hCompeletionPort != NULL) {
             m_hThread = (HANDLE)_beginthread(&CEdoyunQueue<T>::threadEntry,
-                0, m_hCompeletionPort);
+                0, this);
         }
     }
     ~CEdoyunQueue() {
         if (m_lock == true)return;
         m_lock = true;
-        HANDLE temp = m_hCompeletionPort;
         PostQueuedCompletionStatus(m_hCompeletionPort, 0, NULL, NULL);
-        WaitForSingleObject(m_hThread, INFINITE); 
-        m_hCompeletionPort = NULL;
-        CloseHandle(temp);
+        WaitForSingleObject(m_hThread, INFINITE);
+        if (m_hCompeletionPort != NULL) {
+            HANDLE temp = m_hCompeletionPort;
+            m_hCompeletionPort = NULL;
+            CloseHandle(temp);
+        }
     }
     bool PushBack(const T& data) {
         IocpParam* pParam = new IocpParam(EQPush, data);
@@ -57,6 +59,7 @@ public:
         }
         BOOL ret = PostQueuedCompletionStatus(m_hCompeletionPort, sizeof(PPARAM), (ULONG_PTR)pParam, NULL);
         if (ret == FALSE) delete pParam;
+        //printf("push done %d %08p\r\n", ret, (void*)pParam);
         return ret;
     }
     bool PopFront(T& data) { 
@@ -98,6 +101,7 @@ public:
         IocpParam* pParam = new IocpParam(EQClear, T());
         BOOL ret = PostQueuedCompletionStatus(m_hCompeletionPort, sizeof(PPARAM), (ULONG_PTR)pParam, NULL);
         if (ret == FALSE) delete pParam;
+        //printf("clear new  %08p\r\n", (void*)pParam);
         return ret;
     }
 private:
@@ -111,6 +115,7 @@ private:
         case EQPush:
             m_lstData.push_back(pParam->Data);
             delete pParam;
+            //printf("delete %08p\r\n", (void*)pParam);
             break;
         case EQPop:
             if (m_lstData.size() > 0) {
@@ -127,11 +132,12 @@ private:
             break;
         case EQClear:
             m_lstData.clear();
+            delete pParam;
             break;
         default:
             OutputDebugString(_T("Unkown operator!\r\n"));
             break;
-        }
+        } 
     }
     void threadMain() {
         DWORD dwTransferred = 0;
@@ -141,7 +147,7 @@ private:
         while (GetQueuedCompletionStatus(m_hCompeletionPort, &dwTransferred, &CompletionKey, &pOverlapped, INFINITE))
         {
             if (dwTransferred == 0 && CompletionKey == NULL) {
-                printf("thread is prepare to exit!\r\n");
+                //printf("thread is prepare to exit!\r\n");
                 break;
             }
             pParam = (PPARAM*)CompletionKey;
@@ -153,9 +159,12 @@ private:
                 continue;
             }
             pParam = (PPARAM*)CompletionKey;
+            //printf("%08p\r\n", (void*)pParam);
             DealParam(pParam);
-        }
-        CloseHandle(m_hCompeletionPort);
+        } 
+        HANDLE temp = m_hCompeletionPort;
+        m_hCompeletionPort = NULL;
+        CloseHandle(temp);
     }
 private:
     std::list<T> m_lstData;

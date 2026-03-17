@@ -59,29 +59,60 @@ bool ChooseAutoInvoke(const CString& strPath)
     return true;
 }
 
+void test()
+{
+    /* 
+        性能对比:CEdoyunQueue push性能高,pop性能仅push1/4
+        std::list pop高,push低
+    */
+    CEdoyunQueue<std::string> lstStrings;
+    ULONGLONG tick0 = GetTickCount64(), tick = GetTickCount64(), total = GetTickCount64();
+    while (GetTickCount64() - total <= 1000) {
+        //if (GetTickCount64() - tick0 >= 10) {
+            lstStrings.PushBack("hello world");
+            tick0 = GetTickCount64();
+        //}
+        //Sleep(1);
+    }
+    size_t count = lstStrings.Size();// 接近200000
+    printf("lstStrings push done! size = %d\r\n", count);
+    total = GetTickCount64();
+    while (GetTickCount64() - total <= 1000) { 
+        //if (GetTickCount64() - tick >= 10 ) {
+            std::string str;
+            lstStrings.PopFront(str);
+            tick = GetTickCount64(); 
+        //}
+        //Sleep(1);
+    }
+    printf("lstStrings pop  size = %d\r\n", count - lstStrings.Size()); 
+    lstStrings.Clear();
+    count = 0;
+    std::list < std::string>lstData;
+    total = GetTickCount64();
+    while (GetTickCount64() - total <= 1000) {
+        lstData.push_back("hello world");// 才比CEdoyunQueue高一点?老师怎么有快1000000
+    }
+    printf("list push!  size = %d\r\n", count = lstData.size());
+    while (GetTickCount64() - total <= 250) {
+        if (lstData.size() > 0)
+            {lstData.pop_front();}
+    }
+    printf("list pop!  size = %d\r\n", (count-lstData.size())*4);
+}
+/*
+    1 bug测试/功能测试
+    2 关键因素的测试(内存泄漏,运行稳定性,条件性)
+    3 压力测试(可靠性)
+    4 性能测试
+*/
 int main()
 {
     if (!CMyTool::Init()) return 1;
-    CEdoyunQueue<std::string> lstStrings;
-    ULONGLONG tick0 = GetTickCount64(), tick = GetTickCount64();
-    while (_kbhit() == 0) {
-        if (GetTickCount64() - tick0 > 1300) {
-            lstStrings.PushBack("hello world");
-            tick0 = GetTickCount64();
-        }
-        if (GetTickCount64() - tick > 2000) {
-            std::string str;
-            lstStrings.PopFront(str);
-            tick = GetTickCount64();
-            printf("pop from queue: %s \r\n", str.c_str());
-        }
-        Sleep(1);
+    printf("press any key to exit!\r\n");
+    for (int i = 0; i < 10;++i) {
+        test();
     }
-
-    printf("exit done! size = %d\r\n", lstStrings.Size());
-    lstStrings.Clear();
-    printf("exit done! size = %d\r\n", lstStrings.Size());
-    exit(0);
     /*if (CMyTool::IsAdmin()) {
         if (!CMyTool::Init()) return 1;
         if (ChooseAutoInvoke(INVOKE_PATH)) {
