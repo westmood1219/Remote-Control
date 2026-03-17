@@ -10,6 +10,7 @@
 #include "Command.h"
 #include "MyTool.h"
 #include <conio.h>
+#include "CEdoyunQueue.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -58,99 +59,28 @@ bool ChooseAutoInvoke(const CString& strPath)
     return true;
 }
 
-enum {
-    IocpListEmpty,
-    IocpListPush,
-    IocpListPop
-};
-
-void threadmain(HANDLE hIOCP)
-{
-    std::list<std::string> lstString;
-    DWORD dwTransferrred = 0;
-    ULONG_PTR CompletionKey = 0;
-    OVERLAPPED* pOverlapped{ NULL };
-    while (GetQueuedCompletionStatus(hIOCP, &dwTransferrred, &CompletionKey, &pOverlapped, INFINITE))
-    {
-        if (dwTransferrred == 0 && CompletionKey == NULL) {
-            printf("thread is prepare to exit!\r\n");
-            break;
-        }
-        IOCP_PARAM* pParam = (IOCP_PARAM*)CompletionKey;
-        if (pParam->nOperator == IocpListPush) {
-            lstString.push_back(pParam->strData);
-        }
-        else if (pParam->nOperator == IocpListPop) {
-            std::string str;
-            if (lstString.size() > 0)
-            {
-                str = lstString.front();
-                lstString.pop_front();
-            }
-            if (pParam->cbFunc) {
-                pParam->cbFunc(&str);
-            }
-        }
-        else if (pParam->nOperator == IocpListEmpty)
-        {
-            lstString.clear();
-        } 
-        delete pParam;
-    }
-}
-
-void threadQueueEntry(HANDLE hIOCP)
-{
-    threadmain(hIOCP);
-    _endthread();// 代码到此为止会导致本地对象无法调用析构,导致内存泄漏
-}
-
-void func(void* arg) 
-{
-    std::string* pstr = (std::string*)arg;
-    if (pstr != NULL) {
-        printf("pop from list:%s\r\n", pstr->c_str());
-    }
-    else {
-        printf("list is empty, no data\r\n!");
-    }
-}
-
 int main()
 {
     if (!CMyTool::Init()) return 1;
-    printf("press any key to exit...\r\n");
-
-    HANDLE hIOCP = INVALID_HANDLE_VALUE;// IO Completion Port
-    hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);    //epoll只允许单线程,完全端口映射允许多线程
-    if (hIOCP == INVALID_HANDLE_VALUE || (hIOCP == NULL)) {
-        printf("create iocp failed %d \r\n", GetLastError());
-        return 1;
-    }
-    HANDLE hThread = (HANDLE)_beginthread(threadQueueEntry, 0, hIOCP);
-
-    ULONGLONG tick = GetTickCount64();
-    ULONGLONG tick0 = GetTickCount64();
-    while (_kbhit() == 0)// iocp 把请求与实现分离了
-    {
+    CEdoyunQueue<std::string> lstStrings;
+    ULONGLONG tick0 = GetTickCount64(), tick = GetTickCount64();
+    while (_kbhit() == 0) {
         if (GetTickCount64() - tick0 > 1300) {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello world",func), NULL);
+            lstStrings.PushBack("hello world");
             tick0 = GetTickCount64();
         }
         if (GetTickCount64() - tick > 2000) {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPush, "hello world",func), NULL);
+            std::string str;
+            lstStrings.PopFront(str);
             tick = GetTickCount64();
+            printf("pop from queue: %s \r\n", str.c_str());
         }
         Sleep(1);
     }
-    if (hIOCP != NULL) {
-        PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);
-        WaitForSingleObject(hThread, INFINITE);
-    }
 
-    CloseHandle(hIOCP);
-
-    printf("exit done!\r\n");
+    printf("exit done! size = %d\r\n", lstStrings.Size());
+    lstStrings.Clear();
+    printf("exit done! size = %d\r\n", lstStrings.Size());
     exit(0);
     /*if (CMyTool::IsAdmin()) {
         if (!CMyTool::Init()) return 1;
