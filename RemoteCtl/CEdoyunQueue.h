@@ -1,6 +1,7 @@
-﻿#pragma once
+#pragma once
 #include "pch.h"
 #include <atomic>
+#include <list>
 
 // 线程安全的队列,利用IOCP实现
 template <class T>
@@ -161,7 +162,7 @@ private:
             pParam = (PPARAM*)CompletionKey;
             //printf("%08p\r\n", (void*)pParam);
             DealParam(pParam);
-        } 
+        }
         HANDLE temp = m_hCompeletionPort;
         m_hCompeletionPort = NULL;
         CloseHandle(temp);

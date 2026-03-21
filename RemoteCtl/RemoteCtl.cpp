@@ -11,10 +11,8 @@
 #include "MyTool.h"
 #include <conio.h>
 #include "CEdoyunQueue.h"
-
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
+#include <mswsock.h>
+#include "EdoyunServer.h"
 
 #define INVOKE_PATH _T("C:\\Users\\wzdf\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\RemoteCtl.exe")
 //#define INVOKE_PATH _T("C:\\Windows\\SysWOW64\\RemoteCtl.exe")
@@ -88,10 +86,10 @@ void test()
     printf("lstStrings pop  size = %d\r\n", count - lstStrings.Size()); 
     lstStrings.Clear();
     count = 0;
-    std::list < std::string>lstData;
+    std::list <std::string>lstData;
     total = GetTickCount64();
     while (GetTickCount64() - total <= 1000) {
-        lstData.push_back("hello world");// 才比CEdoyunQueue高一点?老师怎么有快1000000
+        lstData.push_back("hello world");// 才比CEdoyunQueue高一点?演示怎么有快1000000
     }
     printf("list push!  size = %d\r\n", count = lstData.size());
     while (GetTickCount64() - total <= 250) {
@@ -106,13 +104,16 @@ void test()
     3 压力测试(可靠性)
     4 性能测试
 */
+
+void iocp();
+
 int main()
 {
     if (!CMyTool::Init()) return 1;
-    printf("press any key to exit!\r\n");
-    for (int i = 0; i < 10;++i) {
-        test();
-    }
+
+    //test();
+    iocp();
+
     /*if (CMyTool::IsAdmin()) {
         if (!CMyTool::Init()) return 1;
         if (ChooseAutoInvoke(INVOKE_PATH)) {
@@ -139,4 +140,23 @@ int main()
         }
     }*/
     return 0; 
+}
+
+class COverlapped {
+public:
+    OVERLAPPED m_overlapped;
+    DWORD m_operator;
+    char m_buffer[4096];
+    COverlapped() {
+        m_operator = 0;
+        memset(&m_overlapped, 0, sizeof(m_overlapped));
+        memset(m_buffer, 0, sizeof(m_buffer));
+    }
+};
+
+void iocp()
+{
+    EdoyunServer server;
+    server.StartService();
+    getchar();
 }
