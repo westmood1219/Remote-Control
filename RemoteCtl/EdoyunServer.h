@@ -74,7 +74,9 @@ public:
     }
 
     LPWSABUF RecvWSABuffer ();
+    LPWSAOVERLAPPED RecvOverlapped ();
     LPWSABUF SendWSABuffer ();
+    LPWSAOVERLAPPED SendOverlapped ();
 
     DWORD& flags () { return m_flags; }
 
@@ -163,57 +165,14 @@ public:
     }
     ~EdoyunServer ();
 
-    bool StartService() { 
-        CreateSocket();
-        if (bind(m_sock, (sockaddr*)&m_addr, sizeof(m_addr)) == -1) {
-            closesocket(m_sock);
-            m_sock = INVALID_SOCKET;
-            return false;
-        }
-        if (listen(m_sock, 3) == -1) {
-            closesocket(m_sock);
-            m_sock = INVALID_SOCKET;
-            return false;
-        }
-        m_hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 4);
-        if (m_hIOCP == NULL) {
-            closesocket(m_sock);
-            m_sock = INVALID_SOCKET;
-            m_hIOCP = INVALID_HANDLE_VALUE;
-            return false;
-        }
-        CreateIoCompletionPort((HANDLE)m_sock, m_hIOCP, (ULONG_PTR)this, 0);
-        m_pool.Invoke();
-        m_pool.DispatchWorker(ThreadWorker(this, (FUNCTYPE)&EdoyunServer::threadIocp));
-        if (!NewAccept())return false;
-        return true;
-    }  
+    bool StartService ();
 
-    bool NewAccept() {
-        PCLIENT pClient(new EdoyunClient());
-        pClient->SetOverlapped(pClient);
-        m_client.insert(std::pair<SOCKET, PCLIENT>(*pClient, pClient));
-        if (!AcceptEx(m_sock,
-            *pClient,
-            *pClient,
-            0,
-            sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
-            *pClient, *pClient)) {
-            closesocket(m_sock);
-            m_sock = INVALID_SOCKET;
-            m_hIOCP = INVALID_HANDLE_VALUE;
-            ;
-            return false;
-        }
-        return true;
-    }
+    bool NewAccept ();
+
+    void BindNewSocket (SOCKET s);
 
 private:
-    void CreateSocket() {
-        m_sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-        int opt = 1;
-        setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
-    }
+    void CreateSocket ();
     int threadIocp ();
 
 private:

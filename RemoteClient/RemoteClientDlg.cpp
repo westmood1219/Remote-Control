@@ -293,7 +293,7 @@ LRESULT CRemoteClientDlg::OnSendPacketAck(WPARAM wParam, LPARAM lParam)
 {
 
 	if (lParam == -1 || lParam == -2) {
-		TRACE("errer handle %d\r\n",lParam);
+		TRACE("socket errer handle %d\r\n",lParam);
     }
     else if(lParam == 1){
 		TRACE("对方关闭了套接字\r\n");
