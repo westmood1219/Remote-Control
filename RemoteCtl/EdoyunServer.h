@@ -24,8 +24,11 @@ public:
     std::vector<char> m_buffer;//缓冲区
     ThreadWorker m_worker;// 处理函数
     EdoyunServer* m_server;// 服务器对象
-    PCLIENT m_client;// 对应的客户端
+    EdoyunClient* m_client;// 对应的客户端
     WSABUF m_wsabuffer;
+    virtual ~EdoyunOverlapped () {
+        m_buffer.clear ();
+    }
 };
 
 //前向声明模板
@@ -39,12 +42,19 @@ typedef SendOverlapped<ESend> SENDOVERLAPPED;
 typedef RecvOverlapped<ERecv> RECVOVERLAPPED;
 typedef ErrorOverlapped<EError> ERROROVERLAPPED;
 
+
+
 // 客户端
-class EdoyunClient {
+class EdoyunClient : public ThreadFuncBase{
 public:
     EdoyunClient();
     ~EdoyunClient() {
+        m_buffer.clear ();
         closesocket(m_sock);
+        m_recv.reset ();
+        m_send.reset ();
+        m_overlapped.reset ();
+        m_vecSend.Clear ();
     }
 
     void SetOverlapped(PCLIENT& ptr);
@@ -70,14 +80,12 @@ public:
 
     sockaddr_in* GetLocalAddr ( ) { return &m_laddr; }
     sockaddr_in* GetRemoteAddr ( ) { return &m_raddr; }
+
     size_t GetBufferSize () const { return m_buffer.size (); }
-    int  Recv ( ) {
-        int ret=recv ( m_sock , m_buffer.data() + m_used, m_buffer.size ( ) - m_used, 0 );
-        if (ret <= 0) return -1;
-        m_used += (size_t) ret; // 已经使用的缓冲区大小
-        //TODO:解析数据
-        return 0;
-    }
+    int  Recv ();
+
+    int Send (void* buffer, size_t nSize);
+    int SendData (std::vector<char>& data);
 
 private:
     SOCKET m_sock;
@@ -92,6 +100,7 @@ private:
     sockaddr_in m_laddr;
     sockaddr_in m_raddr;
     bool m_isbusy;
+    EdoyunSendQueue<std::vector<char>> m_vecSend;//发送数据队列
 };
 
 
@@ -100,8 +109,7 @@ template<EdoyunOperator>
 class AcceptOverlapped :public EdoyunOverlapped, ThreadFuncBase {
 public:
     AcceptOverlapped ( );
-    int AcceptWorker();
-    PCLIENT m_client;
+    int AcceptWorker(); 
 };
 
 // 接收RECV
@@ -121,6 +129,8 @@ class SendOverlapped :public EdoyunOverlapped, ThreadFuncBase {
 public:
     SendOverlapped ();
     int SendWorker() {
+        // 与同步的直接发送不同
+        // 1 send 可能不会立即完成:(几百毫秒内)几千个同时连接(每个要发生几百个字节)需要几百kB/s->几十Mb/s,除了视频服务器,一般带宽没这么大
         return -1;
     }
 };
@@ -144,14 +154,14 @@ class EdoyunServer :
     public ThreadFuncBase
 {
 public:
-    EdoyunServer(const std::string& ip = "0,0,0,0", short port = 9327) : m_pool(10) {
+    EdoyunServer(const std::string& ip = "0.0.0.0", short port = 9327) : m_pool(10) {
         m_hIOCP = INVALID_HANDLE_VALUE;
         m_sock = INVALID_SOCKET;
         m_addr.sin_family = AF_INET;
         m_addr.sin_addr.s_addr = inet_addr(ip.c_str());
         m_addr.sin_port = htons(port);
     }
-    ~EdoyunServer(){}
+    ~EdoyunServer ();
 
     bool StartService() { 
         CreateSocket();
@@ -192,6 +202,7 @@ public:
             closesocket(m_sock);
             m_sock = INVALID_SOCKET;
             m_hIOCP = INVALID_HANDLE_VALUE;
+            ;
             return false;
         }
         return true;
