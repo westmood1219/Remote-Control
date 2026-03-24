@@ -1,4 +1,4 @@
-﻿// RemoteCtl.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
+// RemoteCtl.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
 #include "pch.h"
@@ -107,12 +107,48 @@ void test()
 
 void iocp();
 
-int main()
+void udp_server ();
+void udp_client (bool ishost = true);
+
+int main(int argc, char* argv[])
 {
     if (!CMyTool::Init()) return 1;
 
+    if (argc == 1) {
+        char  strDir[ MAX_PATH ];
+        GetCurrentDirectoryA (MAX_PATH , strDir);
+        STARTUPINFOA si;
+        memset (&si , 0 , sizeof (si));
+        PROCESS_INFORMATION pi;
+        memset (&pi , 0 , sizeof (pi));
+        string strCmd = argv[ 0 ];
+        strCmd += " 1";
+        BOOL bRet = CreateProcessA(NULL , (LPSTR)strCmd.c_str() , NULL , NULL , FALSE , 0 , NULL , strDir , &si , &pi);
+        if (bRet) {
+            CloseHandle (pi.hThread);
+            CloseHandle (pi.hProcess);
+            TRACE (_T("进程id: %d\r\n") , pi.dwProcessId);
+            TRACE (_T("线程id: %d\r\n") , pi.dwThreadId);
+            strCmd += " 2";
+            bRet = CreateProcessA(NULL , (LPSTR) strCmd.c_str () , NULL , NULL , FALSE , 0 , NULL , strDir , &si , &pi);
+            if (bRet) {
+                CloseHandle (pi.hThread);
+                CloseHandle (pi.hProcess);
+                TRACE (_T("进程id: %d\r\n") , pi.dwProcessId);
+                TRACE (_T("线程id: %d\r\n") , pi.dwThreadId);
+            }
+            udp_server ();// 服务器
+        } 
+    }else if (argc == 2)// 主客户端
+    {
+        udp_client ();
+    }
+    else {// 从客户端
+        udp_client (false);
+    }
+
     //test();
-    iocp();
+    //iocp();
 
     /*if (CMyTool::IsAdmin()) {
         if (!CMyTool::Init()) return 1;
@@ -142,21 +178,24 @@ int main()
     return 0; 
 }
 
-class COverlapped {
-public:
-    OVERLAPPED m_overlapped;
-    DWORD m_operator;
-    char m_buffer[4096];
-    COverlapped() {
-        m_operator = 0;
-        memset(&m_overlapped, 0, sizeof(m_overlapped));
-        memset(m_buffer, 0, sizeof(m_buffer));
-    }
-};
-
 void iocp()
 {
     EdoyunServer server;
     server.StartService();
     getchar();
+}
+
+void udp_server () {
+    printf("%s(%d):%s\r\n" , __FILE__ , __LINE__ , __FUNCTION__);
+    getchar ();
+}
+
+void udp_client (bool ishost)
+{
+    if (ishost) {
+        printf ("%s(%d):%s\r\n" , __FILE__ , __LINE__ , __FUNCTION__);
+    }
+    else {
+        printf ("%s(%d):%s\r\n" , __FILE__ , __LINE__ , __FUNCTION__);
+    }
 }
